@@ -6,13 +6,13 @@ The tool computes the optimal waverider shape for a given mission. This is done 
 When I started to write the code, I had very little experience with python so some parts of the code are not considered pythonic. Also, there is very little optimization to the code.
 
 # Dependencies
-numpy
-scipy
-fluid
-matplotlib (only for 2D plot of waverider)
-plotly (only for 3D plot of waverider)
-tringle (only for 3D plot of waverider)
-xlsxwriter (for output the points in .xlsx file)
+* numpy
+* scipy
+* fluid
+* matplotlib (only for 2D plot of waverider)
+* plotly (only for 3D plot of waverider)
+* tringle (only for 3D plot of waverider)
+* xlsxwriter (only to output the points in .xlsx file)
 
 # Setting up the virtual environment
 ## Windows
