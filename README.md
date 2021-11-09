@@ -11,7 +11,7 @@ scipy
 fluid
 matplotlib (only for 2D plot of waverider)
 plotly (only for 3D plot of waverider)
-tringle (only for 3D plot of waverider)
+tringle (only for contour plots and 3D plot of waverider)
 xlsxwriter (for output the points in .xlsx file)
 
 # Setting up the virtual environment
