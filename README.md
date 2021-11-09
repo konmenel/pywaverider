@@ -1,5 +1,7 @@
 # Introduction
-My code of the waverider design tool and results for the paper.
+My code of a waverider design tool and results of the paper (still in progress).
+
+The tool computes the optimal waverider shape for a given mission. This is done using the Nealder-Mead Simplex optimization algorithm in order to find the geometry of the mission inputs.
 
 When I started to write the code, I had very little experience with python so some parts of the code are not considered pythonic. Also, there is very little optimization to the code.
 
@@ -28,3 +30,10 @@ After venv is activated type:
 ```
 python -m pip install -r dependencies.txt
 ```
+
+# Running the code
+To run the code you can simple double-click the missionRun.bat file (if on Windows) or by opening a terminal on the directory and typing the following command:
+```
+python Code/main.py
+```
+A window will be displayed for you to choose the mission inputs
