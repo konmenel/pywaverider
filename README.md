@@ -33,10 +33,13 @@ To install the dependencies first you need to activate the environment:
 ```
 venv\Scripts\Activate
 ```
-
 After venv is activated type:
 ```
 python -m pip install -r dependencies.txt
+```
+Alternatively, you can install the dependancies listed above one by one using:
+```
+python -m pip install <nameofdependency>
 ```
 # Running the code
 To run the code on Windows you can simple run the `missionRun.bat` file. Alternatively, you can opening a terminal on the directory and typing the following command:
