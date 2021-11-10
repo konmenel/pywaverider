@@ -15,7 +15,8 @@ When I started to write the code, I had very little experience with python so so
 * xlsxwriter (only to output the points in .xlsx file)
 
 # Setting up the virtual environment
-## Windows
+The process described below is for a windows machine but it is similar for a linux machine.
+
 You can create a virual environment using either conda or venv. For venv open Command Prompt or Powershell in the directory and type: 
 ```
 python -m venv ./venv
@@ -30,7 +31,6 @@ After venv is activated type:
 ```
 python -m pip install -r dependencies.txt
 ```
-
 # Running the code
 To run the code you can simple double-click the missionRun.bat file (if on Windows) or by opening a terminal on the directory and typing the following command:
 ```
