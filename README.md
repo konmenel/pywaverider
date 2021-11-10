@@ -1,18 +1,25 @@
 # Introduction
 My code of a waverider design tool and results of the paper (still in progress).
 
-The tool computes the optimal waverider shape for a given mission. This is done using the Nealder-Mead Simplex optimization algorithm in order to find the geometry of the mission inputs.
+The tool computes the optimal waverider shape for a given mission. This is done using the *Nealder-Mead Simplex* optimization algorithm in order to find the geometry with the best *L/D* ration for the specific mission. The geometry of the waverider is computed using a method called *osculating cones*, which an extension of the *cone-derived waveriders*.
 
 When I started to write the code, I had very little experience with python so some parts of the code are not considered pythonic. Also, there is very little optimization to the code.
 
+# To do
+- [ ] Code refactoring
+- [ ] Code optimazations
+- [ ] Find a reliable way to calculate the initial inputs
+- [ ] Find more reliable optimization algorithms to escape local minima
+- [ ] Code it in **C++**
+
 # Dependencies
-* numpy
-* scipy
-* fluid
-* matplotlib (only for 2D plot of waverider)
-* plotly (only for 3D plot of waverider)
-* tringle (only for contour plots and 3D plot of waverider)
-* xlsxwriter (only to output the points in .xlsx file)
+- numpy
+- scipy
+- fluid
+- matplotlib (only for 2D plot of waverider)
+- plotly (only for 3D plot of waverider)
+- tringle (only for contour plots and 3D plot of waverider)
+- xlsxwriter (only to output the points in .xlsx file)
 
 # Setting up the virtual environment
 The process described below is for a windows machine but it is similar for a linux machine.
@@ -32,7 +39,7 @@ After venv is activated type:
 python -m pip install -r dependencies.txt
 ```
 # Running the code
-To run the code you can simple double-click the missionRun.bat file (if on Windows) or by opening a terminal on the directory and typing the following command:
+To run the code on Windows you can simple run the `missionRun.bat` file. Alternatively, you can opening a terminal on the directory and typing the following command:
 ```
 python Code/main.py
 ```
