@@ -42,7 +42,7 @@ Alternatively, you can install the dependancies listed above one by one using:
 python -m pip install <nameofdependency>
 ```
 # Running the code
-To run the code on Windows you can simple run the `missionRun.bat` file. Alternatively, you can opening a terminal on the directory and typing the following command:
+To run the code on Windows you can simple run the `missionRun.bat` file. Alternatively, you can opening a terminal in the directory and typing the following command:
 ```
 python Code/main.py
 ```
