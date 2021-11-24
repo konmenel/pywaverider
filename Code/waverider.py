@@ -1003,31 +1003,12 @@ if __name__ == "__main__":
 
     test_wr = Waverider(results['WR'])
 
-    # print(test_wr)
-    # print(test_wr.L_loss, test_wr.D_gain)
-    
     _, ax = plt.subplots(1, 2, sharex='col')
     test_wr.plotStress('lower', ax=ax[0])
     test_wr.plotPressure('lower', ax=ax[1])
-    # test_wr.plotBase(ax=ax[1][0])
-    # test_wr.plotBase(ax=ax[1][1])
-    # ax[0][0].set_box_aspect(1)
-    # ax[0][1].set_box_aspect(1)
-    # ax[1][0].set_box_aspect(1)
-    # ax[1][1].set_box_aspect(1)
-
-    # bbox00 = ax[0][0].get_position()
-    # bbox10 = ax[1][0].get_position()
-    # bbox01 = ax[0][1].get_position()
-    # bbox11 = ax[1][1].get_position()
-    # bbox10.x0, bbox10.x1 = bbox00.x0, bbox00.x1
-    # bbox11.x0, bbox11.x1 = bbox01.x0, bbox01.x1
-
-    # bbox2 = ax[0][1].get_position()
-    # ax[1][0].set_position(bbox10)
-    # ax[1][0].set_anchor((1.0, 0.5))
-    # ax[1][1].set_position(bbox11)
-    # ax[1][1].set_anchor((1.0, 0.5))
+    _, ax = plt.subplots(1, 2, sharex='col')
+    test_wr.plotStress('upper', ax=ax[0])
+    test_wr.plotPressure('upper', ax=ax[1])
 
     test_wr.plotAll()
     

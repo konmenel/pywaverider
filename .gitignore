@@ -1,2 +1,9 @@
 venv/
 Code/__pycache__/
+*.sln
+bin/
+bin-int/
+*.user
+
+# temporary ignore
+code/C++/

@@ -485,6 +485,7 @@ class Aero3d:
         return 2 * np.trapz(drag_gain_2d, x=ycg)
 
 
+
 if __name__ == "__main__":
     from config_modify import results_load_json
     import time
