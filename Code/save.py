@@ -1,5 +1,4 @@
-"""
-Module containing the functions related to saving the results and configuration.
+"""Module containing the functions related to saving the results and configuration.
 
 About the saves:
 The JSON file contains a dictionary with 2 fields ('results' and 'CONFIG').
@@ -134,6 +133,11 @@ def export_performance() -> None:
         worksheet.write(8, 0, 's')
         worksheet.write(9, 0, 'l')
         worksheet.write(10, 0, 's_l')
+        worksheet.write(11, 0, 'Cp_base')
+        worksheet.write(12, 0, 'P_base')
+        worksheet.write(13, 0, 'D_base')
+        worksheet.write(14, 0, 'S_base')
+
 
         for i, method in enumerate(methods, 1):
             cfg.CONFIG['Viscous Method'] = method
@@ -152,8 +156,11 @@ def export_performance() -> None:
             worksheet.write(8, i, wr_perf.s)
             worksheet.write(9, i, wr_perf.l)
             worksheet.write(10, i, wr_perf.s_l)
-
+            worksheet.write(11, i, wr_perf.Cp_base)
+            worksheet.write(12, i, wr_perf.P_base)
+            worksheet.write(13, i, wr_perf.D_base)
+            worksheet.write(14, i, wr_perf.S_base)
 
 
 if __name__ == "__main__":
-    pass
+    export_performance()

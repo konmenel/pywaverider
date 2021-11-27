@@ -439,6 +439,10 @@ class Waverider:
     # Method properties
     L_loss: float
     D_gain: float
+    Cp_base: float
+    P_base: float
+    S_base: float
+    D_base: float
 
     def __init__(self, wr_in: Union[WRInputs, dict]):
         # if the inputs are given in dictionary format unpack them and
@@ -565,6 +569,33 @@ class Waverider:
         """Function to calculate the Drag gain."""        
         return aerod.Aero3d.drag_gain(self)
 
+    @property
+    def Cp_base(self) -> float:
+        """Return the coefficient of pressure (Cp) on the base of waverider."""
+        cp = (2. / (cfg.GAM * cfg.MINF ** 2)) * (((2. / (cfg.GAM + 1)) ** 1.4) * \
+                ((1 / cfg.MINF) ** 2.8) * ((2 * cfg.GAM * cfg.MINF ** 2 - (cfg.GAM - 1)) / \
+                (cfg.GAM + 1)) - 1)
+        return cp
+
+    @property
+    def P_base(self) -> float:
+        """Return the pressure on the base of waverider."""
+        P, _ = aerod.base_surf_press(self.LS)
+        return P
+
+    @property
+    def S_base(self) -> float:
+        """Return the surface of the base of waverider."""
+        _, S = aerod.base_surf_press(self.LS)
+        return S 
+
+    @property
+    def D_base(self) -> float:
+        """Return the drag (pressure * surface) on the base of waverider.
+        Note: not really a drag since it points opposite to the streamwise direction.
+        """
+        return aerod.base_drag(self.LS)
+
     def inputs(self) -> WRInputs:
         # returns an object of the inputs of the waverider
         return WRInputs(self.b, self.s, self.l, self.per_l, self.yle, self.zle)
@@ -625,6 +656,40 @@ class Waverider:
         if self.L < minL:
             return True
         return False
+
+    def plotTempOnSymmetry(self, ax=None, ref=False):
+        """Plot the temperature of the waverider on the symmetry.
+        Arguments:
+            ax: the matplotlib.axes.Axes object to plot on. If not given the
+            function will create one and return it
+            ref: boolean. If true plot the reference temperature used for the viscous
+            calculations (default=False)
+        """
+        return_flag = False
+        if ax == None:
+            _, ax = plt.subplots()
+            return_flag = True
+
+        T = self.LS[0].T
+
+        if ref:
+            T0 = T * (1. + ((cfg.GAM - 1) / 2) * self.LS[0].M ** 2)
+            Tw = T + 0.88 * (T0 - T)
+            T = T * (1. + 0.032 * self.LS[0].M ** 2 + 0.58 * (Tw / T - 1.))
+        
+        ax.plot(self.LS[0].x , T)
+
+        title = 'Temperature on Symmetry'
+        if ref:
+            title = f'Reference {title}'
+
+        ax.set_title(title)
+        ax.set_ylabel('Temperature [K]')
+        ax.set_xlabel('x [m]')
+        ax.grid()
+
+        if return_flag:
+            return ax
 
     def plotStress(self, surface: str, ax=None):
         """Plots the wall shear stress on top on the surface.
@@ -1003,13 +1068,17 @@ if __name__ == "__main__":
 
     test_wr = Waverider(results['WR'])
 
-    _, ax = plt.subplots(1, 2, sharex='col')
-    test_wr.plotStress('lower', ax=ax[0])
-    test_wr.plotPressure('lower', ax=ax[1])
-    _, ax = plt.subplots(1, 2, sharex='col')
-    test_wr.plotStress('upper', ax=ax[0])
-    test_wr.plotPressure('upper', ax=ax[1])
+    _, (ax1, ax2) = plt.subplots(2, 1)
+    test_wr.plotTempOnSymmetry(ax=ax1)
+    test_wr.plotTempOnSymmetry(ax=ax2, ref=True)
 
-    test_wr.plotAll()
+    # _, ax = plt.subplots(1, 2, sharex='col')
+    # test_wr.plotStress('lower', ax=ax[0])
+    # test_wr.plotPressure('lower', ax=ax[1])
+    # _, ax = plt.subplots(1, 2, sharex='col')
+    # test_wr.plotStress('upper', ax=ax[0])
+    # test_wr.plotPressure('upper', ax=ax[1])
+
+    # test_wr.plotAll()
     
     plt.show()
