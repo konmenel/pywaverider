@@ -1,5 +1,4 @@
-"""
-Module containing the necessary functions to perform a Nelder-Mead optimazation
+"""Module containing the necessary functions to perform a Nelder-Mead optimazation
 for a waverider object.
 """
 from typing import List
@@ -327,8 +326,7 @@ def initalGuesses():
 
 
 def results_to_screen(results: dict, plot_3D: bool=True, htmlExport: bool=False):
-    """
-    A function that plot and prints the results to the screen.
+    """A function that plot and prints the results to the screen.
     Arguments:
         results: The dictionary of the results
         plot_3D: A boolean to create a 3D plot if True. By default True.

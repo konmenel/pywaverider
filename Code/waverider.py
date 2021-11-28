@@ -846,6 +846,86 @@ class Waverider:
         if return_flag:
             return ax
 
+    def plotTemperature(self, surface: str, ax=None, ref=False):
+        """Plots the pressure on top on the surface.
+        Arguments:
+            surface: a string for to specify the surface (`upper` or `lower`)
+            ax: the matplotlib.axes.Axes object to plot on. If not given the
+            function will create one and return it.
+            ref: boolean. If true plot the reference temperature used for the viscous
+            calculations (default=False).
+        """
+        return_flag = False
+        if ax == None:
+            _, ax = plt.subplots()
+            return_flag = True
+
+        x = []
+        y = []
+        T = []
+        M = []
+        if surface == 'lower':
+            for plane in self.LS:
+                x.extend(plane.x)
+                y.extend(plane.y)
+                T.extend(plane.T)
+                M.extend(plane.M)
+        elif surface == 'upper':
+            for plane in self.US:
+                x.extend(plane.x)
+                y.extend(plane.y)
+                T.extend(plane.T)
+                M.extend(plane.M)
+        else:
+            raise ValueError(f'Unknown Surface "{surface}". Surface variable should be either "upper" or "lower".')
+        
+        if ref:
+            T = np.array(T)
+            M = np.array(M)
+            T0 = T * (1. + ((cfg.GAM - 1) / 2) * M ** 2)
+            Tw = T + 0.88 * (T0 - T)
+            T = T * (1. + 0.032 * M ** 2 + 0.58 * (Tw / T - 1.))
+
+        # Indeces of Waverider bountaries
+        seg = [(0, self.LS[0].N)]
+        # Leading edge loop
+        for i in range(1, len(self.LS) - 1):
+            seg.append((seg[-1][1], seg[-1][1] + self.LS[i].N))
+        # Tailing edge loop
+        for i in range(len(self.LS) - 1, 0, -1):
+            last = seg[-1][1]
+            seg.append((last, last - self.LS[i].N))
+        # Symmetry Plane
+        seg.extend([(i, i - 1) for i in range(seg[-1][1], 0, -1)])
+
+
+        vert = np.stack((x, y), axis=1)
+        tri = dict(
+            vertices=vert,
+            segments=seg,
+            holes=[(self.LS[int(len(self.LS)/2)].x[0]*1.05, self.LS[int(len(self.LS)/2)].y[0])]
+            
+        )
+        tri = tr.triangulate(tri, 'p')
+
+        # Plotting
+        levels = 100
+        colormap = 'jet'
+        ax.tricontourf(y, x, tri['triangles'], T, levels, cmap=colormap)
+        cntr = ax.tricontourf([-i for i in y], x, tri['triangles'], T, levels, cmap=colormap)
+        
+        cbar = plt.gcf().colorbar(cntr, ax=ax)
+        cbar.set_label('Temperature [K]')
+        ax.set_title(f'{surface.capitalize()} Surface Temperature Contour')
+        ax.axis('equal')
+        ax.set_ylabel('x [m]')
+        ax.set_xlabel('y [m]')
+        ax.grid()
+
+        if return_flag:
+            return ax
+
+
     def plot3d(self, plotOffline=False):
         xls = []
         yls = []
@@ -1068,17 +1148,41 @@ if __name__ == "__main__":
 
     test_wr = Waverider(results['WR'])
 
-    _, (ax1, ax2) = plt.subplots(2, 1)
-    test_wr.plotTempOnSymmetry(ax=ax1)
-    test_wr.plotTempOnSymmetry(ax=ax2, ref=True)
+    fig_temp, ax = plt.subplots()
+    test_wr.plotTemperature(ax=ax, surface='lower')
+    fig_temp_ref, ax = plt.subplots()
+    test_wr.plotTemperature(ax=ax, surface='lower', ref=True)
 
-    # _, ax = plt.subplots(1, 2, sharex='col')
-    # test_wr.plotStress('lower', ax=ax[0])
-    # test_wr.plotPressure('lower', ax=ax[1])
-    # _, ax = plt.subplots(1, 2, sharex='col')
-    # test_wr.plotStress('upper', ax=ax[0])
-    # test_wr.plotPressure('upper', ax=ax[1])
+    fig_press, ax = plt.subplots()
+    test_wr.plotPressure('lower', ax=ax)
+    fig_stress_u, ax = plt.subplots()
+    test_wr.plotStress('upper', ax=ax)
+    fig_stress_l, ax = plt.subplots()
+    test_wr.plotStress('lower', ax=ax)
 
     # test_wr.plotAll()
-    
+    from pathlib import Path
+    savepath = Path(__file__).parents[1].absolute()
+    savepath /= 'results\\plots'
+    fig_temp.savefig(
+        savepath / f'temperature_contour_{cfg.CONFIG["Viscous Method"]}.svg',
+        format='svg'
+    )
+    fig_temp_ref.savefig(
+        savepath / f'ref_temperature_contour_{cfg.CONFIG["Viscous Method"]}.svg',
+        format='svg'
+    )
+    fig_press.savefig(
+        savepath / f'pressure_contour_{cfg.CONFIG["Viscous Method"]}.svg',
+        format='svg'
+    )
+    fig_stress_u.savefig(
+        savepath / f'stress_upper_contour_{cfg.CONFIG["Viscous Method"]}.svg',
+        format='svg'
+    )
+    fig_stress_l.savefig(
+        savepath / f'stress_lower_contour_{cfg.CONFIG["Viscous Method"]}.svg',
+        format='svg'
+    )
+
     plt.show()

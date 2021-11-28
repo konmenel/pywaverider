@@ -1,5 +1,4 @@
-"""
-Configuration file.
+"""Configuration file.
 
 Configuration Parameters:
     MINF: Free flow Mach number

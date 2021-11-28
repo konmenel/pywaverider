@@ -6,6 +6,7 @@ The tool computes the optimal waverider shape for a given mission. This is done 
 When I started to write the code, I had very little experience with python so some parts of the code are not considered pythonic. Also, there is very little optimization to the code.
 
 # To do
+- [ ] Make it a command-line program 
 - [ ] Code refactoring
 - [ ] Code optimazations
 - [ ] Find a reliable way to calculate the initial inputs

@@ -4,6 +4,7 @@ Code/__pycache__/
 bin/
 bin-int/
 *.user
+/Results
 
 # temporary ignore
 code/C++/

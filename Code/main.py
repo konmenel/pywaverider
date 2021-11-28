@@ -2,6 +2,7 @@
 optimal Waverider for a given mission.
 """
 from os import system
+import sys
 import numpy as np
 import waverider as wrdr
 import optimization as opti
@@ -10,7 +11,7 @@ from config_modify import config_create_window
 from save import save_results
 from scipy.optimize import minimize
 
-
+# TODO: make it command-line program
 
 def main() -> None:
     """The main function of the tool"""
