@@ -431,7 +431,7 @@ class Aero3d:
             A2d[i] = aero2d.A
 
         self.L = 2 * np.trapz(L2d, x=ycg)
-        self.D = 2 * np.trapz(D2d, x=ycg) - base_drag(wr_obj.LS)
+        self.D = 2 * (np.trapz(D2d, x=ycg) - base_drag(wr_obj.LS))
         self.V = 2 * np.trapz(A2d, x=ym)
         self.S = 2 * np.trapz(xle, x=yle)
     
