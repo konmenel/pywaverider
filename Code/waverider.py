@@ -591,10 +591,9 @@ class Waverider:
 
     @property
     def D_base(self) -> float:
-        """Return the drag (pressure * surface) on the base of waverider.
-        Note: not really a drag since it points opposite to the streamwise direction.
-        """
-        return aerod.base_drag(self.LS)
+        """Return the base drag ((Pinf - Pbase) * surface) of waverider."""
+        p_base, s_base = aerod.base_surf_press(self.LS)
+        return (cfg.ATM.P - p_base) * s_base
 
     def inputs(self) -> WRInputs:
         # returns an object of the inputs of the waverider
@@ -924,7 +923,6 @@ class Waverider:
 
         if return_flag:
             return ax
-
 
     def plot3d(self, plotOffline=False):
         xls = []

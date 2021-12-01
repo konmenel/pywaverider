@@ -312,10 +312,11 @@ def base_surf_press(l_obj_list) -> Tuple[float, float]:
             yus[i] = plane.y[0]
             zus[i] = plane.z[0]
     S = np.trapz(zls, x=yls) - np.trapz(zus, x=yus)
+    S *= 2  # for full span
     return P, S
 
 
-def base_drag(l_obj_list) -> float:
+def base_force(l_obj_list) -> float:
     """Function that returns the base drag. Base drag is just the force from the pressure at the
     base of the waverider. Should be subtracted from the total drag because it is in the direction
     of the motion.
@@ -431,7 +432,7 @@ class Aero3d:
             A2d[i] = aero2d.A
 
         self.L = 2 * np.trapz(L2d, x=ycg)
-        self.D = 2 * (np.trapz(D2d, x=ycg) - base_drag(wr_obj.LS))
+        self.D = 2 * np.trapz(D2d, x=ycg) - base_force(wr_obj.LS)
         self.V = 2 * np.trapz(A2d, x=ym)
         self.S = 2 * np.trapz(xle, x=yle)
     
