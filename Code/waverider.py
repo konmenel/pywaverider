@@ -1,6 +1,7 @@
 """
 Module containing the necessary classes for the representation of a Waverider.
 """
+from functools import cached_property
 import numpy as np
 import matplotlib.pyplot as plt
 import plotly.offline
@@ -52,10 +53,10 @@ class WRInputs:
         ysw = np.empty(sz)
         zsw = np.empty(sz)
 
-        zsw[0:-1] = [np.tan(self.b*np.pi/180.)*self.l]*(sz-1)
-        zsw[-1] = 0.7*zsw[0]
+        zsw[0:-1] = [np.tan(self.b*np.pi/180.) * self.l] * (sz-1)
+        zsw[-1] = 0.7 * zsw[0]
         for i, per in enumerate(per_sw):
-            ysw[i] = self.s*(self.per_l + per*(1. - self.per_l))
+            ysw[i] = self.s * (self.per_l + per * (1. - self.per_l))
 
         yle = [0., *self.yle, ysw[-1]]
         zle = [0., 0., *self.zle, zsw[-1]]
@@ -549,7 +550,7 @@ class Waverider:
         self.volEff = aero.V / (aero.S ** 1.5)
         self.L_D = aero.L / aero.D
 
-    @property
+    @cached_property
     def L_loss(self) -> float:
         """Function to calculate the Lift loss."""
         # Code to calculate the angle of each plane (phi)
@@ -564,12 +565,12 @@ class Waverider:
         
         return aerod.Aero3d.lift_loss(self, phi)
 
-    @property
+    @cached_property
     def D_gain(self) -> float:
         """Function to calculate the Drag gain."""        
         return aerod.Aero3d.drag_gain(self)
 
-    @property
+    @cached_property
     def Cp_base(self) -> float:
         """Return the coefficient of pressure (Cp) on the base of waverider."""
         cp = (2. / (cfg.GAM * cfg.MINF ** 2)) * (((2. / (cfg.GAM + 1)) ** 1.4) * \
@@ -577,23 +578,38 @@ class Waverider:
                 (cfg.GAM + 1)) - 1)
         return cp
 
-    @property
+    @cached_property
     def P_base(self) -> float:
         """Return the pressure on the base of waverider."""
         P, _ = aerod.base_surf_press(self.LS)
         return P
 
-    @property
+    @cached_property
     def S_base(self) -> float:
         """Return the surface of the base of waverider."""
         _, S = aerod.base_surf_press(self.LS)
         return S 
 
-    @property
+    @cached_property
     def D_base(self) -> float:
         """Return the base drag ((Pinf - Pbase) * surface) of waverider."""
         p_base, s_base = aerod.base_surf_press(self.LS)
         return (cfg.ATM.P - p_base) * s_base
+
+    @cached_property
+    def _boundaryIndeces(self) -> List[int]:
+        seg = [(0, self.LS[0].N)]
+        # Leading edge loop
+        for i in range(1, len(self.LS) - 1):
+            seg.append((seg[-1][1], seg[-1][1] + self.LS[i].N))
+        # Tailing edge loop
+        for i in range(len(self.LS) - 1, 0, -1):
+            last = seg[-1][1]
+            seg.append((last, last - self.LS[i].N))\
+        # Symmetry Plane
+        seg.extend([(i, i - 1) for i in range(seg[-1][1], 0, -1)])
+
+        return seg
 
     def inputs(self) -> WRInputs:
         # returns an object of the inputs of the waverider
@@ -656,6 +672,66 @@ class Waverider:
             return True
         return False
 
+    def getAllPlaneDataInLine(self, surface: str, attr: str) -> List[float]:
+        """Method to get the data of all planes in one continuous list. 
+        (i.e. LS.x of all planes)
+
+        Parameters
+        ----------
+        surface : str
+            [description]
+        atr : str
+            [description]
+
+        Returns
+        -------
+        List
+            [description]
+        """
+        surface_map = {'upper': self.US, 'lower': self.LS, 'base': self.BS}
+        data = []
+        for surf in  surface_map[surface]:
+            if surf.N != 1:
+                data.extend(list(getattr(surf, attr)))
+            else:
+                data.append(float(getattr(surf, attr)))
+
+        return data
+
+    def getAllPlaneShearInLine(self, surface: str) -> List[float]:
+        """Method to get the data of all planes in one continuous list. 
+        (i.e. LS.x of all planes)
+
+        Parameters
+        ----------
+        surface : str
+            [description]
+
+        Returns
+        -------
+        List
+            [description]
+        """
+        surface_map = {'lower': 0, 'upper': 1}
+        tw = []
+        for i, plane in enumerate(self.LS):
+            if i < cfg.PLANES - 1:
+                length = np.abs(plane.x[0] - plane.x[-1])
+                x_plane = length - plane.x
+            else:
+                x_plane = plane.x
+            
+            if cfg.METHOD == 1:
+                tw_for_both = aerod.van_driest_method(plane, x_plane)
+            elif cfg.METHOD == 2:
+                tw_for_both = aerod.ref_temp_method(plane, x_plane)
+
+            tw.extend(tw_for_both[surface_map[surface]])
+
+            tw[-1] = tw[-self.LS[-2].N]
+
+        return tw
+
     def plotTempOnSymmetry(self, ax=None, ref=False):
         """Plot the temperature of the waverider on the symmetry.
         Arguments:
@@ -690,7 +766,7 @@ class Waverider:
         if return_flag:
             return ax
 
-    def plotStress(self, surface: str, ax=None):
+    def plotStress(self, surface='lower', ax=None, plot3d=False):
         """Plots the wall shear stress on top on the surface.
         Arguments:
             surface: a string for to specify the surface (`upper` or `lower`)
@@ -701,57 +777,98 @@ class Waverider:
             print('No shear stress exist for Inviscid Case.')
             return
 
+        # For plotting
+        levels = 100
+        colormap = 'jet'
         return_flag = False
+
+        # Indeces of Waverider bountaries
+        seg = self._boundaryIndeces
+        
+        # 3D plot
+        if plot3d:
+            xls = self.getAllPlaneDataInLine('lower', 'x')
+            yls = self.getAllPlaneDataInLine('lower', 'y')
+            zls = self.getAllPlaneDataInLine('lower', 'z')
+            tls = self.getAllPlaneShearInLine('lower')
+            xus = self.getAllPlaneDataInLine('upper', 'x')
+            yus = self.getAllPlaneDataInLine('upper', 'y')
+            zus = self.getAllPlaneDataInLine('upper', 'z')
+            tus = self.getAllPlaneShearInLine('upper')
+
+            points_ls = np.stack((xls, yls), axis=1)
+            A_ls = dict(
+                vertices=points_ls,
+                segments=seg,
+                holes=[(self.LS[int(len(self.LS)/2)].x[0]*1.05, self.LS[int(len(self.LS)/2)].y[0])]
+            )
+            tri_ls = tr.triangulate(A_ls, 'p')
+            points_us = np.stack((xus, yus), axis=1)
+            A_us = dict(
+                vertices=points_us,
+                segments=seg,
+                holes=[(self.LS[int(len(self.LS)/2)].x[0]*1.05, self.LS[int(len(self.LS)/2)].y[0])]
+            )
+            tri_us = tr.triangulate(A_us, 'p')
+
+            data0 = go.Mesh3d(x=xls, y=yls, z=-np.array(zls),
+                            i=[i[0] for i in tri_ls['triangles']],
+                            j=[i[1] for i in tri_ls['triangles']],
+                            k=[i[2] for i in tri_ls['triangles']],
+                            intensity=tls, colorscale=colormap)
+            data1 = go.Mesh3d(x=xus, y=yus, z=-np.array(zus),
+                            i=[i[0] for i in tri_us['triangles']],
+                            j=[i[1] for i in tri_us['triangles']],
+                            k=[i[2] for i in tri_us['triangles']],
+                            intensity=tus, colorscale=colormap)
+            data2 = go.Mesh3d(x=xls, y=-np.array(yls), z=-np.array(zls),
+                            i=[i[0] for i in tri_ls['triangles']],
+                            j=[i[1] for i in tri_ls['triangles']],
+                            k=[i[2] for i in tri_ls['triangles']],
+                            intensity=tls, colorscale=colormap)
+            data3 = go.Mesh3d(x=xus, y=-np.array(yus), z=-np.array(zus),
+                            i=[i[0] for i in tri_us['triangles']],
+                            j=[i[1] for i in tri_us['triangles']],
+                            k=[i[2] for i in tri_us['triangles']],
+                            intensity=tus, colorscale=colormap)
+
+            fig = go.Figure(data=[data0, data1, data2, data3])
+            fig.update_layout(scene=dict(yaxis = dict(range=[-self.l/2, self.l/2]),
+                                        zaxis = dict(range=[-self.l/2, self.l/2]),
+                                        xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
+                                        scene_aspectmode='cube')
+            fig.show()
+            return
+
+        # 2D plot
         if ax == None:
             _, ax = plt.subplots()
             return_flag = True
 
-        x = []
-        y = []
-        if surface == 'lower':
-            for plane in self.LS:
-                x.extend(plane.x)
-                y.extend(plane.y)
-        elif surface == 'upper':
-            for plane in self.US:
-                x.extend(plane.x)
-                y.extend(plane.y)
-        else:
-            raise ValueError(f'Unknown Surface "{surface}". Surface variable should be either "upper" or "lower".')
+        x = self.getAllPlaneDataInLine(surface, 'x')
+        y = self.getAllPlaneDataInLine(surface, 'y')
 
-        tw = []
-        for i, plane in enumerate(self.LS):
-            if i < cfg.PLANES - 1:
-                length = np.abs(plane.x[0] - plane.x[-1])
-                x_plane = length - plane.x
-            else:
-                x_plane = plane.x
+        tw = self.getAllPlaneShearInLine(surface)
+        # for i, plane in enumerate(self.LS):
+        #     if i < cfg.PLANES - 1:
+        #         length = np.abs(plane.x[0] - plane.x[-1])
+        #         x_plane = length - plane.x
+        #     else:
+        #         x_plane = plane.x
             
-            if cfg.METHOD == 1:
-                tw_ls, tw_us = aerod.van_driest_method(plane, x_plane)
-            elif cfg.METHOD == 2:
-                tw_ls, tw_us = aerod.ref_temp_method(plane, x_plane)
+        #     if cfg.METHOD == 1:
+        #         tw_ls, tw_us = aerod.van_driest_method(plane, x_plane)
+        #     elif cfg.METHOD == 2:
+        #         tw_ls, tw_us = aerod.ref_temp_method(plane, x_plane)
 
-            if surface == 'lower':
-                tw.extend(list(tw_ls))
-            elif surface == 'upper':
-                tw.extend(list(tw_us))
+        #     if surface == 'lower':
+        #         tw.extend(list(tw_ls))
+        #     elif surface == 'upper':
+        #         tw.extend(list(tw_us))
 
-            tw[-1] = tw[-self.LS[-2].N]
+        #     tw[-1] = tw[-self.LS[-2].N]
 
-        
-        # Indeces of Waverider bountaries
-        seg = [(0, self.LS[0].N)]
-        # Leading edge loop
-        for i in range(1, len(self.LS) - 1):
-            seg.append((seg[-1][1], seg[-1][1] + self.LS[i].N))
-        # Tailing edge loop
-        for i in range(len(self.LS) - 1, 0, -1):
-            last = seg[-1][1]
-            seg.append((last, last - self.LS[i].N))
-        # Symmetry Plane
-        seg.extend([(i, i - 1) for i in range(seg[-1][1], 0, -1)])
-
+        # Plotting
         vert = np.stack((x, y), axis=1)
         tri = dict(
             vertices=vert,
@@ -760,10 +877,6 @@ class Waverider:
             
         )
         tri = tr.triangulate(tri, 'p')
-
-        # Plotting
-        levels = 100
-        colormap = 'jet'
         ax.tricontourf(y, x, tri['triangles'], tw, levels, cmap=colormap)
         cntr = ax.tricontourf([-i for i in y], x, tri['triangles'], tw, levels, cmap=colormap)
         
@@ -778,45 +891,98 @@ class Waverider:
         if return_flag:
             return ax
 
-    def plotPressure(self, surface: str, ax=None):
+    def plotPressure(self, surface='lower', ax=None, plot3d=False):
         """Plots the pressure on top on the surface.
         Arguments:
             surface: a string for to specify the surface (`upper` or `lower`)
             ax: the matplotlib.axes.Axes object to plot on. If not given the
             function will create one and return it
         """
+
+        # For Plotting
+        levels = 100
+        colormap = 'jet'
         return_flag = False
+
+        # Indeces of Waverider bountaries
+        seg = self._boundaryIndeces
+
+        # 3D plot
+        if plot3d:
+            xls = self.getAllPlaneDataInLine('lower', 'x')
+            yls = self.getAllPlaneDataInLine('lower', 'y')
+            zls = self.getAllPlaneDataInLine('lower', 'z')
+            Pls = self.getAllPlaneDataInLine('lower', 'P')
+            xus = self.getAllPlaneDataInLine('upper', 'x')
+            yus = self.getAllPlaneDataInLine('upper', 'y')
+            zus = self.getAllPlaneDataInLine('upper', 'z')
+            Pus = self.getAllPlaneDataInLine('upper', 'P')
+
+            points_ls = np.stack((xls, yls), axis=1)
+            A_ls = dict(
+                vertices=points_ls,
+                segments=seg,
+                holes=[(self.LS[int(len(self.LS)/2)].x[0]*1.05, self.LS[int(len(self.LS)/2)].y[0])]
+            )
+            tri_ls = tr.triangulate(A_ls, 'p')
+            points_us = np.stack((xus, yus), axis=1)
+            A_us = dict(
+                vertices=points_us,
+                segments=seg,
+                holes=[(self.LS[int(len(self.LS)/2)].x[0]*1.05, self.LS[int(len(self.LS)/2)].y[0])]
+            )
+            tri_us = tr.triangulate(A_us, 'p')
+
+            data0 = go.Mesh3d(x=xls, y=yls, z=-np.array(zls),
+                            i=[i[0] for i in tri_ls['triangles']],
+                            j=[i[1] for i in tri_ls['triangles']],
+                            k=[i[2] for i in tri_ls['triangles']],
+                            intensity=Pls, colorscale=colormap)
+            data1 = go.Mesh3d(x=xus, y=yus, z=-np.array(zus),
+                            i=[i[0] for i in tri_us['triangles']],
+                            j=[i[1] for i in tri_us['triangles']],
+                            k=[i[2] for i in tri_us['triangles']],
+                            intensity=Pus, colorscale=colormap)
+            data2 = go.Mesh3d(x=xls, y=-np.array(yls), z=-np.array(zls),
+                            i=[i[0] for i in tri_ls['triangles']],
+                            j=[i[1] for i in tri_ls['triangles']],
+                            k=[i[2] for i in tri_ls['triangles']],
+                            intensity=Pls, colorscale=colormap)
+            data3 = go.Mesh3d(x=xus, y=-np.array(yus), z=-np.array(zus),
+                            i=[i[0] for i in tri_us['triangles']],
+                            j=[i[1] for i in tri_us['triangles']],
+                            k=[i[2] for i in tri_us['triangles']],
+                            intensity=Pus, colorscale=colormap)
+
+            fig = go.Figure(data=[data0, data1, data2, data3])
+            fig.update_layout(scene=dict(yaxis = dict(range=[-self.l/2, self.l/2]),
+                                        zaxis = dict(range=[-self.l/2, self.l/2]),
+                                        xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
+                                        scene_aspectmode='cube')
+            fig.show()
+            return
+
+        # 2D plot
         if ax == None:
             _, ax = plt.subplots()
             return_flag = True
 
-        x = []
-        y = []
-        pressure = []
-        if surface == 'lower':
-            for plane in self.LS:
-                x.extend(plane.x)
-                y.extend(plane.y)
-                pressure.extend(plane.P)
-        elif surface == 'upper':
-            for plane in self.US:
-                x.extend(plane.x)
-                y.extend(plane.y)
-                pressure.extend(plane.P)
-        else:
-            raise ValueError(f'Unknown Surface "{surface}". Surface variable should be either "upper" or "lower".')
+        x = self.getAllPlaneDataInLine(surface, 'x')
+        y = self.getAllPlaneDataInLine(surface, 'y')
+        pressure = self.getAllPlaneDataInLine(surface, 'P')
+        # if surface == 'lower':
+        #     for plane in self.LS:
+        #         x.extend(plane.x)
+        #         y.extend(plane.y)
+        #         pressure.extend(plane.P)
+        # elif surface == 'upper':
+        #     for plane in self.US:
+        #         x.extend(plane.x)
+        #         y.extend(plane.y)
+        #         pressure.extend(plane.P)
+        # else:
+        #     raise ValueError(f'Unknown Surface "{surface}". Surface variable should be either "upper" or "lower".')
         
-        # Indeces of Waverider bountaries
-        seg = [(0, self.LS[0].N)]
-        # Leading edge loop
-        for i in range(1, len(self.LS) - 1):
-            seg.append((seg[-1][1], seg[-1][1] + self.LS[i].N))
-        # Tailing edge loop
-        for i in range(len(self.LS) - 1, 0, -1):
-            last = seg[-1][1]
-            seg.append((last, last - self.LS[i].N))
-        # Symmetry Plane
-        seg.extend([(i, i - 1) for i in range(seg[-1][1], 0, -1)])
 
 
         vert = np.stack((x, y), axis=1)
@@ -828,9 +994,6 @@ class Waverider:
         )
         tri = tr.triangulate(tri, 'p')
 
-        # Plotting
-        levels = 100
-        colormap = 'jet'
         ax.tricontourf(y, x, tri['triangles'], pressure, levels, cmap=colormap)
         cntr = ax.tricontourf([-i for i in y], x, tri['triangles'], pressure, levels, cmap=colormap)
         
@@ -845,7 +1008,7 @@ class Waverider:
         if return_flag:
             return ax
 
-    def plotTemperature(self, surface: str, ax=None, ref=False):
+    def plotTemperature(self, surface='lower', ax=None, ref=False, plot3d=False):
         """Plots the pressure on top on the surface.
         Arguments:
             surface: a string for to specify the surface (`upper` or `lower`)
@@ -854,49 +1017,101 @@ class Waverider:
             ref: boolean. If true plot the reference temperature used for the viscous
             calculations (default=False).
         """
+        # For plotting
+        levels = 100
+        colormap = 'jet'
         return_flag = False
+        
+        # Indeces of Waverider bountaries
+        seg = self._boundaryIndeces
+        
+        # 3D plot
+        if plot3d:
+            xls = self.getAllPlaneDataInLine('lower', 'x')
+            yls = self.getAllPlaneDataInLine('lower', 'y')
+            zls = self.getAllPlaneDataInLine('lower', 'z')
+            Tls = self.getAllPlaneDataInLine('lower', 'T')
+            xus = self.getAllPlaneDataInLine('upper', 'x')
+            yus = self.getAllPlaneDataInLine('upper', 'y')
+            zus = self.getAllPlaneDataInLine('upper', 'z')
+            Tus = self.getAllPlaneDataInLine('upper', 'T')
+
+            if ref:
+                Mls = self.getAllPlaneDataInLine('lower', 'M')
+                Tls = np.array(Tls)
+                Mls = np.array(Mls)
+                T0 = Tls * (1. + ((cfg.GAM - 1) / 2) * Mls ** 2)
+                Tw = Tls + 0.88 * (T0 - Tls)
+                Tls = Tls * (1. + 0.032 * Mls ** 2 + 0.58 * (Tw / Tls - 1.))
+                
+                Mus = self.getAllPlaneDataInLine('upper', 'M')
+                Tus = np.array(Tus)
+                Mus = np.array(Mus)
+                T0 = Tus * (1. + ((cfg.GAM - 1) / 2) * Mus ** 2)
+                Tw = Tus + 0.88 * (T0 - Tus)
+                Tus = Tus * (1. + 0.032 * Mus ** 2 + 0.58 * (Tw / Tus - 1.))
+
+            points_ls = np.stack((xls, yls), axis=1)
+            A_ls = dict(
+                vertices=points_ls,
+                segments=seg,
+                holes=[(self.LS[int(len(self.LS)/2)].x[0]*1.05, self.LS[int(len(self.LS)/2)].y[0])]
+            )
+            tri_ls = tr.triangulate(A_ls, 'p')
+            points_us = np.stack((xus, yus), axis=1)
+            A_us = dict(
+                vertices=points_us,
+                segments=seg,
+                holes=[(self.LS[int(len(self.LS)/2)].x[0]*1.05, self.LS[int(len(self.LS)/2)].y[0])]
+            )
+            tri_us = tr.triangulate(A_us, 'p')
+
+            data0 = go.Mesh3d(x=xls, y=yls, z=-np.array(zls),
+                            i=[i[0] for i in tri_ls['triangles']],
+                            j=[i[1] for i in tri_ls['triangles']],
+                            k=[i[2] for i in tri_ls['triangles']],
+                            intensity=Tls, colorscale=colormap)
+            data1 = go.Mesh3d(x=xus, y=yus, z=-np.array(zus),
+                            i=[i[0] for i in tri_us['triangles']],
+                            j=[i[1] for i in tri_us['triangles']],
+                            k=[i[2] for i in tri_us['triangles']],
+                            intensity=Tus, colorscale=colormap)
+            data2 = go.Mesh3d(x=xls, y=-np.array(yls), z=-np.array(zls),
+                            i=[i[0] for i in tri_ls['triangles']],
+                            j=[i[1] for i in tri_ls['triangles']],
+                            k=[i[2] for i in tri_ls['triangles']],
+                            intensity=Tls, colorscale=colormap)
+            data3 = go.Mesh3d(x=xus, y=-np.array(yus), z=-np.array(zus),
+                            i=[i[0] for i in tri_us['triangles']],
+                            j=[i[1] for i in tri_us['triangles']],
+                            k=[i[2] for i in tri_us['triangles']],
+                            intensity=Tus, colorscale=colormap)
+
+            fig = go.Figure(data=[data0, data1, data2, data3])
+            fig.update_layout(scene=dict(yaxis = dict(range=[-self.l/2, self.l/2]),
+                                        zaxis = dict(range=[-self.l/2, self.l/2]),
+                                        xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
+                                        scene_aspectmode='cube')
+            fig.show()
+            return
+
+        # 2D plot
         if ax == None:
             _, ax = plt.subplots()
             return_flag = True
 
-        x = []
-        y = []
-        T = []
-        M = []
-        if surface == 'lower':
-            for plane in self.LS:
-                x.extend(plane.x)
-                y.extend(plane.y)
-                T.extend(plane.T)
-                M.extend(plane.M)
-        elif surface == 'upper':
-            for plane in self.US:
-                x.extend(plane.x)
-                y.extend(plane.y)
-                T.extend(plane.T)
-                M.extend(plane.M)
-        else:
-            raise ValueError(f'Unknown Surface "{surface}". Surface variable should be either "upper" or "lower".')
+
+        x = self.getAllPlaneDataInLine(surface, 'x')
+        y = self.getAllPlaneDataInLine(surface, 'y')
+        T = self.getAllPlaneDataInLine(surface, 'T')
         
         if ref:
+            M = self.getAllPlaneDataInLine(surface, 'M')
             T = np.array(T)
             M = np.array(M)
             T0 = T * (1. + ((cfg.GAM - 1) / 2) * M ** 2)
             Tw = T + 0.88 * (T0 - T)
             T = T * (1. + 0.032 * M ** 2 + 0.58 * (Tw / T - 1.))
-
-        # Indeces of Waverider bountaries
-        seg = [(0, self.LS[0].N)]
-        # Leading edge loop
-        for i in range(1, len(self.LS) - 1):
-            seg.append((seg[-1][1], seg[-1][1] + self.LS[i].N))
-        # Tailing edge loop
-        for i in range(len(self.LS) - 1, 0, -1):
-            last = seg[-1][1]
-            seg.append((last, last - self.LS[i].N))
-        # Symmetry Plane
-        seg.extend([(i, i - 1) for i in range(seg[-1][1], 0, -1)])
-
 
         vert = np.stack((x, y), axis=1)
         tri = dict(
@@ -908,8 +1123,6 @@ class Waverider:
         tri = tr.triangulate(tri, 'p')
 
         # Plotting
-        levels = 100
-        colormap = 'jet'
         ax.tricontourf(y, x, tri['triangles'], T, levels, cmap=colormap)
         cntr = ax.tricontourf([-i for i in y], x, tri['triangles'], T, levels, cmap=colormap)
         
@@ -925,51 +1138,15 @@ class Waverider:
             return ax
 
     def plot3d(self, plotOffline=False):
-        xls = []
-        yls = []
-        zls = []
-        xus = []
-        yus = []
-        zus = []
-        for ls, us in zip(self.LS, self.US):
-            if ls.N != 1:
-                xls.extend(list(ls.x))
-                yls.extend(list(ls.y))
-                zls.extend(list(ls.z))
-                xus.extend(list(us.x))
-                yus.extend(list(us.y))
-                zus.extend(list(us.z))
-            else:
-                xls.append(float(ls.x))
-                yls.append(float(ls.y))
-                zls.append(float(ls.z))
-                xus.append(float(us.x))
-                yus.append(float(us.y))
-                zus.append(float(us.z))
+        xls = self.getAllPlaneDataInLine('lower', 'x')
+        yls = self.getAllPlaneDataInLine('lower', 'y')
+        zls = self.getAllPlaneDataInLine('lower', 'z')
+        xus = self.getAllPlaneDataInLine('upper', 'x')
+        yus = self.getAllPlaneDataInLine('upper', 'y')
+        zus = self.getAllPlaneDataInLine('upper', 'z')
 
-        # Indeces of Waverider bountaries
-        seg = [(0, self.LS[0].N)]
-        # Leading edge loop
-        for i in range(1, len(self.LS) - 1):
-            seg.append((seg[-1][1], seg[-1][1] + self.LS[i].N))
-        # Tailing edge loop
-        for i in range(len(self.LS) - 1, 0, -1):
-            last = seg[-1][1]
-            seg.append((last, last - self.LS[i].N))\
-        # Symmetry Plane
-        seg.extend([(i, i - 1) for i in range(seg[-1][1], 0, -1)])
-
-
-        # seg = []
-        # for i in range(len(self.LS)-1):
-        #     if self.LS[i+1].N == 1:
-        #         seg.append([xls.index(self.LS[i].x[0]), xls.index(self.LS[i].x[0]) + 1])
-        #     else:
-        #         seg.append([xls.index(self.LS[i].x[0]), xls.index(self.LS[i+1].x[0])])
-        # for i in range(len(self.LS)-2, 0, -1):
-        #     last = seg[-1][-1]
-        #     seg.append([last, last-self.LS[i].N])
-        # seg.append([seg[-1][-1], 0])
+        # Indeces of Waverider boundaries
+        seg = self._boundaryIndeces
 
         points_ls = np.stack((xls, yls), axis=1)
         A_ls = dict(
@@ -986,18 +1163,26 @@ class Waverider:
         )
         tri_us = tr.triangulate(A_us, 'p')
 
-        data0 = go.Mesh3d(x=xls, y=yls, z=-np.array(zls), i=[i[0] for i in tri_ls['triangles']],
-                                                        j=[i[1] for i in tri_ls['triangles']],
-                                                        k=[i[2] for i in tri_ls['triangles']], color='red')
-        data1 = go.Mesh3d(x=xus, y=yus, z=-np.array(zus), i=[i[0] for i in tri_us['triangles']],
-                                                        j=[i[1] for i in tri_us['triangles']],
-                                                        k=[i[2] for i in tri_us['triangles']], color='blue')
-        data2 = go.Mesh3d(x=xls, y=-np.array(yls), z=-np.array(zls), i=[i[0] for i in tri_ls['triangles']],
-                                                        j=[i[1] for i in tri_ls['triangles']],
-                                                        k=[i[2] for i in tri_ls['triangles']], color='red')
-        data3 = go.Mesh3d(x=xus, y=-np.array(yus), z=-np.array(zus), i=[i[0] for i in tri_us['triangles']],
-                                                        j=[i[1] for i in tri_us['triangles']],
-                                                        k=[i[2] for i in tri_us['triangles']], color='blue')
+        data0 = go.Mesh3d(x=xls, y=yls, z=-np.array(zls),
+                          i=[i[0] for i in tri_ls['triangles']],
+                          j=[i[1] for i in tri_ls['triangles']],
+                          k=[i[2] for i in tri_ls['triangles']],
+                          intensity=-np.array(zls))
+        data1 = go.Mesh3d(x=xus, y=yus, z=-np.array(zus),
+                          i=[i[0] for i in tri_us['triangles']],
+                          j=[i[1] for i in tri_us['triangles']],
+                          k=[i[2] for i in tri_us['triangles']],
+                          intensity=-np.array(zus))
+        data2 = go.Mesh3d(x=xls, y=-np.array(yls), z=-np.array(zls),
+                          i=[i[0] for i in tri_ls['triangles']],
+                          j=[i[1] for i in tri_ls['triangles']],
+                          k=[i[2] for i in tri_ls['triangles']],
+                          color='red')
+        data3 = go.Mesh3d(x=xus, y=-np.array(yus), z=-np.array(zus),
+                          i=[i[0] for i in tri_us['triangles']],
+                          j=[i[1] for i in tri_us['triangles']],
+                          k=[i[2] for i in tri_us['triangles']],
+                          color='blue')
         
         if plotOffline:
             # Offline Plot (creating HTML file)
@@ -1146,41 +1331,49 @@ if __name__ == "__main__":
 
     test_wr = Waverider(results['WR'])
 
-    fig_temp, ax = plt.subplots()
-    test_wr.plotTemperature(ax=ax, surface='lower')
-    fig_temp_ref, ax = plt.subplots()
-    test_wr.plotTemperature(ax=ax, surface='lower', ref=True)
+    test_wr.plot3d()
 
-    fig_press, ax = plt.subplots()
-    test_wr.plotPressure('lower', ax=ax)
-    fig_stress_u, ax = plt.subplots()
-    test_wr.plotStress('upper', ax=ax)
-    fig_stress_l, ax = plt.subplots()
-    test_wr.plotStress('lower', ax=ax)
+    # test_wr.plotPressure(plot3d=True)
+    # test_wr.plotStress(plot3d=True)
+    # test_wr.plotTemperature(plot3d=True)
+    # test_wr.plotTemperature(plot3d=True, ref=True)
+
+    # fig_temp, ax = plt.subplots()
+    # test_wr.plotTemperature(ax=ax, surface='lower')
+    # fig_temp_ref, ax = plt.subplots()
+    # test_wr.plotTemperature(ax=ax, surface='lower', ref=True)
+
+    # fig_press, ax = plt.subplots()
+    # test_wr.plotPressure('lower', ax=ax)
+    # fig_stress_u, ax = plt.subplots()
+    # test_wr.plotStress('upper', ax=ax)
+    # fig_stress_l, ax = plt.subplots()
+    # test_wr.plotStress('lower', ax=ax)
 
     # test_wr.plotAll()
-    from pathlib import Path
-    savepath = Path(__file__).parents[1].absolute()
-    savepath /= 'results\\plots'
-    fig_temp.savefig(
-        savepath / f'temperature_contour_{cfg.CONFIG["Viscous Method"]}.svg',
-        format='svg'
-    )
-    fig_temp_ref.savefig(
-        savepath / f'ref_temperature_contour_{cfg.CONFIG["Viscous Method"]}.svg',
-        format='svg'
-    )
-    fig_press.savefig(
-        savepath / f'pressure_contour_{cfg.CONFIG["Viscous Method"]}.svg',
-        format='svg'
-    )
-    fig_stress_u.savefig(
-        savepath / f'stress_upper_contour_{cfg.CONFIG["Viscous Method"]}.svg',
-        format='svg'
-    )
-    fig_stress_l.savefig(
-        savepath / f'stress_lower_contour_{cfg.CONFIG["Viscous Method"]}.svg',
-        format='svg'
-    )
+    # from pathlib import Path
+    # savepath = Path(__file__).parents[1].absolute()
+    # savepath /= 'results\\plots'
+    # fig_temp.savefig(
+    #     savepath / f'temperature_contour_{cfg.CONFIG["Viscous Method"]}.svg',
+    #     format='svg'
+    # )
+    # fig_temp_ref.savefig(
+    #     savepath / f'ref_temperature_contour_{cfg.CONFIG["Viscous Method"]}.svg',
+    #     format='svg'
+    # )
+    # fig_press.savefig(
+    #     savepath / f'pressure_contour_{cfg.CONFIG["Viscous Method"]}.svg',
+    #     format='svg'
+    # )
+    # fig_stress_u.savefig(
+    #     savepath / f'stress_upper_contour_{cfg.CONFIG["Viscous Method"]}.svg',
+    #     format='svg'
+    # )
+    # fig_stress_l.savefig(
+    #     savepath / f'stress_lower_contour_{cfg.CONFIG["Viscous Method"]}.svg',
+    #     format='svg'
+    # )
 
     plt.show()
+    
