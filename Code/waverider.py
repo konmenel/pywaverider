@@ -82,16 +82,26 @@ class WRInputs:
         maxs_l = 0.5
         minper_l = 0.2
         maxper_l = 1
+        minLength = 50
+        maxLength = 80
 
-        # b and s/l constraint
+        # Shockwave angle Constraint
         if self.b < minb or self.b > maxb:
             return True
-        elif self.s/self.l < mins_l or self.s/self.l > maxs_l:
+        
+        # Semispan to Length Ratio Constraint
+        if self.s/self.l < mins_l or self.s/self.l > maxs_l:
             return True
-        elif self.per_l < minper_l or self.per_l >= maxper_l:
+        
+        # Shockwave Line Segment Contraint
+        if self.per_l < minper_l or self.per_l >= maxper_l:
             return True
 
-        # First Leading Edge Point constraint
+        # Length Constraint
+        if self.l > maxLength or self.l < minLength:
+            return True
+
+        # First Leading Edge Point Constraint
         if self.yle[0] < 0.1:
             return True
 
@@ -651,8 +661,6 @@ class Waverider:
         maxvolEff = 0.25
         # minS = 0
         # maxS = 1e6
-        minLength = 50
-        maxLength = 80
         minL = 330585*cfg.ATM.g
 
         # Volumetric Efficiency Constraint
@@ -662,10 +670,6 @@ class Waverider:
         # # Surface Constraint
         # if self.S > maxS or self.S < minS:
         #     return True
-        
-        # Length Constraint
-        if self.l > maxLength or self.l < minLength:
-            return True
         
         # Lift Constraint
         if self.L < minL:
