@@ -4,6 +4,9 @@ class A:
     def __init__(self) -> None:
         self.x = 1
         self.y = 2
+    
+    def test(self, data):
+        print(id(data))
 
 
 class B:
@@ -13,6 +16,10 @@ class B:
         other.x = 10
 
 foo = A()
+
+print(id(foo.x))
+foo.test(foo.x)
+
 bar = B(foo)
 
 print(foo.x)

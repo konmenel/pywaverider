@@ -1,5 +1,4 @@
-"""The module responsible for the evaluation of the aerodynamic perfomance of a Waverider.
-"""
+"""The module responsible for the evaluation of the aerodynamic perfomance of a Waverider."""
 from typing import Tuple, Union
 import numpy as np
 import scipy.optimize as froot

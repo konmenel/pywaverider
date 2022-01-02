@@ -289,35 +289,45 @@ class Bezier:
 
 
 if __name__ == '__main__':
-    def testing() -> None:
-        t = np.linspace(0, 1, 100)
-        B = Bezier((10, 30, 2, 14), (0, 2, 10, 5), ('y', 'z'))
+    # t = np.linspace(0, 1, 100)
+    # B = Bezier((10, 30, 2, 14), (0, 2, 10, 5), ('y', 'z'))
 
-        RC = B.radius_curv(np.linspace(0, 1, 20))
-        print(B.y)
-        print(B.vars)
-        print(RC)
-        print(B.der1('y', 0.5))
+    # RC = B.radius_curv(np.linspace(0, 1, 20))
+    # print(B.y)
+    # print(B.vars)
+    # print(RC)
+    # print(B.der1('y', 0.5))
 
-        # normal x = 15
-        normal = 15
-        y_n = np.array([0, 10])
-        x_n = np.array([15, 15])
-        
-        tint = B.normal_inter(normal, 'y')
-        yint = B.curve('y', tint)
-        zint = B.curve('z', tint)
-        print(f't = {tint}, y = {yint}, z = {zint}')
+    # # normal x = 15
+    # normal = 15
+    # y_n = np.array([0, 10])
+    # x_n = np.array([15, 15])
+    
+    # tint = B.normal_inter(normal, 'y')
+    # yint = B.curve('y', tint)
+    # zint = B.curve('z', tint)
+    # print(f't = {tint}, y = {yint}, z = {zint}')
 
-        #plt.plot(x, y)
-        B.plot()
-        plt.scatter(B.y, B.z)
-        plt.grid()
+    # #plt.plot(x, y)
+    # B.plot()
+    # plt.scatter(B.y, B.z)
+    # plt.grid()
 
-        plt.figure()
-        plt.plot(B.der1('z', t))
-        plt.grid()
+    # plt.figure()
+    # plt.plot(B.der1('z', t))
+    # plt.grid()
 
-        plt.show()
+    # plt.show()
 
-    testing()
+    N_mid = 50
+    N_right = 50
+    xs = [0] + N_mid * [5] + N_right * [10] + [0]
+    ys = [0] + N_mid * [5] + N_right * [0] + [0]
+    triangle = Bezier(xs, ys, ['x', 'y'])
+    _, ax = plt.subplots()
+    triangle.plot(ax=ax)
+    ax.grid()
+    ax.set_aspect('equal')
+
+    plt.show()
+

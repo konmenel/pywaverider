@@ -242,7 +242,13 @@ class TaylorMaccoll:
         self.T = T2T1*To2T2*(1 + ((cfg.GAM - 1)/2)*self.M**2)**(-1)
 
 
-class Edge:
+class _SurfaceObject:
+    """Just a dummy class for inheretence perpuses so that all surface objects are
+    connected.
+    """
+    pass
+
+class Edge(_SurfaceObject):
     """Object for the edge of the waverider (the last plane)
     Properties:
         b: Oblique shockwave angle [rad]
@@ -275,7 +281,7 @@ class Edge:
         self.V = self.M * cfg.ATM.v_sonic
 
 
-class _Streamline:
+class _Streamline(_SurfaceObject):
     """USED ONLY GOT INHERETENCE REASONS!
     Internal object that represents a streamline.
     Properties:
@@ -551,7 +557,7 @@ class Cone(_Streamline):
         self.T = T * cfg.ATM.T
 
 
-class Upper:
+class Upper(_SurfaceObject):
     """Object representing the upper surface of each crossection"""
     tw = None
     
@@ -572,7 +578,7 @@ class Upper:
         self.M = cfg.MINF * np.ones(self.N)
 
 
-class Base:
+class Base(_SurfaceObject):
     """Object representing the base surface of each crossection"""
     def __init__(self, lower_obj):
         self.x = np.zeros(2)
