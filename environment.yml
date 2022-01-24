@@ -1,0 +1,15 @@
+name: waverider
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - numpy=1.21.4
+  - scipy=1.7.2
+  - fluids=1.0.11
+  - matplotlib=3.4.3
+  - plotly=5.3.1
+  - XlsxWriter=3.0.2
+  - pip
+  - pip:
+    - triangle==20200424
