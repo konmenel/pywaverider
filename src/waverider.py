@@ -1220,13 +1220,16 @@ class Waverider:
         ax.axis('equal')
         ax.set_autoscale_on(False)
 
-        yplane = np.linspace(0, self.s, len(self.LS))
-        for y in yplane[[2*i for i in range(int(len(self.LS)/2))]]:
-            if y < self.SW[1].y[0]:
-                self.SW[0].plot_radius(ax, y=y)
+        ys = self.Cones_cache['yplane']
+        for i in range(0, len(self.LS), 2):   
+            if ys[i] < self.SW[1].y[0]:
+                t = self.SW[0].normal_inter(ys[i], 'y')
+                self.SW[0].plot_radius(t, ax, '--xk', linewidth=0.5)
             else:
-                self.SW[1].plot_radius(ax, y=y)
-        self.SW[1].plot_radius(ax, y=yplane[-1]) 
+                idx = i - self.Cones_cache['PLANES_L']
+                t = self.Cones_cache['tsw_c'][idx]
+                self.SW[1].plot_radius(t, ax, '--xk', linewidth=0.5)
+        self.SW[1].plot_radius(self.Cones_cache['tsw_c'][-1], ax, '--xk', linewidth=0.5) 
 
         m = np.max([self.s, self.SW[0].z[0]])*1.3
         ax.legend(['Leading Edge', 'Shockwave', 'Local Cone Radius'])
@@ -1338,10 +1341,10 @@ if __name__ == "__main__":
 
     # test_wr.plot3d()
 
-    test_wr.plotPressure(plot3d=True)
-    test_wr.plotStress(plot3d=True)
-    test_wr.plotTemperature(plot3d=True)
-    test_wr.plotTemperature(plot3d=True, ref=True)
+    # test_wr.plotPressure(plot3d=True)
+    # test_wr.plotStress(plot3d=True)
+    # test_wr.plotTemperature(plot3d=True)
+    # test_wr.plotTemperature(plot3d=True, ref=True)
 
     # fig_temp, ax = plt.subplots()
     # test_wr.plotTemperature(ax=ax, surface='lower')
@@ -1380,5 +1383,7 @@ if __name__ == "__main__":
     #     format='svg'
     # )
 
-    # plt.show()
+    test_wr.plotRadius()
+
+    plt.show()
     

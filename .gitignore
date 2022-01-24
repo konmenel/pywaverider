@@ -1,5 +1,5 @@
 venv/
-Code/__pycache__/
+__pycache__
 *.sln
 bin/
 bin-int/
@@ -8,6 +8,7 @@ bin-int/
 /Transcript
 /Bibliography
 /misc
+.ipynb_checkpoints
 
 # temporary ignore
 code/C++/

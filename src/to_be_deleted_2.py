@@ -1,27 +1,42 @@
+import matplotlib.pyplot as plt
+
+import waverider as wrdr
+import config as cfg
+from config_modify import modify_config
 
 
-class A:
-    def __init__(self) -> None:
-        self.x = 1
-        self.y = 2
-    
-    def test(self, data):
-        print(id(data))
 
+cfg.CONFIG = {
+    "Altitude [km]": 33.4,
+    "Density [kg/m^3]": 0.010864279396722926,
+    "Dynamic Viscosity [Ns/m^2]": 1.5051532347594733e-05,
+    "Mach": 5.0,
+    "Number of Points": 800,
+    "Optimization Parameter": "L/D",
+    "Planes": 80,
+    "Pressure [Pa]": 723.7741536850451,
+    "Temperature [K]": 232.0811914150587,
+    "Type of Problem": "Maximization",
+    "Viscous Method": "Ref. Temperature"
+}
+modify_config()
 
-class B:
-    def __init__(self, other) -> None:
-        self.x = other.x
-        self.y = other.y
-        other.x = 10
+wr_in = {
+    "b": 18.056262690116643,
+    "s": 33.195353512213124,
+    "l": 79.99994760609384,
+    "per_l": 0.20000004898783563,
+    "yle": [
+        5.577090436069006,
+        7.153491258236458,
+        28.47187820394068
+    ],
+    "zle": [
+        17.96887835524319,
+        14.446383541177944
+    ]
+}
 
-foo = A()
+wr = wrdr.Waverider(wrdr.WRInputs(**wr_in))
 
-print(id(foo.x))
-foo.test(foo.x)
-
-bar = B(foo)
-
-print(foo.x)
-print(foo.__dict__)
-print(bar.__dict__)
+fig, (ax1, ax2) = plt.subplots(1, 2)

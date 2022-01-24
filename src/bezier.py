@@ -45,7 +45,7 @@ class Bezier:
         if isinstance(t, (list, np.ndarray)):
             c = np.zeros(len(t))
         else:
-            c = 0
+            c = 0.
          
         if isinstance(t, list):
             t = np.array(t)
@@ -68,8 +68,10 @@ class Bezier:
         if isinstance(t, (list, np.ndarray)):
             c = np.zeros(len(t))
         else:
-            c = np.zeros(1)
-        t = np.array(t)
+            c = 0.
+
+        if isinstance(t, list):
+            t = np.array(t)
 
         # P = getattr(self, var)
         P = self.vars[var]
@@ -90,8 +92,10 @@ class Bezier:
         if isinstance(t, (list, np.ndarray)):
             c = np.zeros(len(t))
         else:
-            c = np.zeros(1)
-        t = np.array(t)
+            c = 0.
+
+        if isinstance(t, list):
+            t = np.array(t)
 
         # P = getattr(self, var)
         P = self.vars[var]
@@ -214,40 +218,19 @@ class Bezier:
             if den == 0:
                 rc = float(1e4)
             else:
-                rc = ((self.der1('z', t) ** 2 + self.der1('y', t) ** 2) ** (1.5)) / den
+                rc = ((self.der1('z', t) ** 2 + self.der1('y', t) ** 2) ** 1.5) / den
         return rc
 
-    def plot_radius(self, ax: Axes=None, **param) -> None:
-        """
-        Method that plots the radius of curvature depending on the parameters given
+    def plot_radius(self, t, ax: Axes=None, *args, **kwargs) -> None:
+        """Method that plots the radius of curvature.
         Arguments:
+            t: the t parameter at which the radius will be plotted.
             ax: Matplotlib Axes object to be ploted on. In not given a new one will be created
-            t: if t is specified the radius will be plotted for the given t (can be either float or list-like)
-            x, y or z: if one of those is specified the radius on the given point. If 2 or more points of
-                       the curve have the same value the one with the maximum t will be plotted.
         """
-        if 't' in param:
-            t = param['t']
-        
-        elif self.axes[0] in param:
-            if param[self.axes[0]] == self.vars[self.axes[0]][0]:
-                t = 0.
-            
-            elif param[self.axes[0]] == self.vars[self.axes[0]][-1]:
-                t = 1.
-            
-            else:
-                t = self.normal_inter(param[self.axes[0]], self.axes[0])
-
-        elif self.axes[1] in param:
-            if param[self.axes[1]] == self.vars[self.axes[1]][0]:
-                t = 0.
-
-            elif param[self.axes[1]] == self.vars[self.axes[1]][-1]:
-                t = 1.
-
-            else:
-                t = self.normal_inter(param[self.axes[1]], self.axes[1])
+        return_flag = False
+        if ax is None:
+            _, ax = plt.subplots()
+            return_flag = True
 
         r_c = self.radius_curv(t)
         if np.isinf(r_c):
@@ -261,10 +244,10 @@ class Bezier:
         x[1] = x[0] - np.cos(self.normal_phi(t)) * r_c
         y[1] = y[0] - np.sin(self.normal_phi(t)) * r_c
 
-        if ax is None:
-            _, ax = plt.subplots()
+        ax.plot(x, y, *args, **kwargs)
 
-        ax.plot(x, y, '--xk', linewidth=0.5)
+        if return_flag:
+            return ax
 
     def plot(self, ax: Axes=None, mirrored: bool=False, *args, **kwargs) -> None:
         """
@@ -274,10 +257,12 @@ class Bezier:
             mirrored: if True the plot will be mirrored on the vertical axis. By default False
             *args, **kwargs: arguments and key arguments of matplotlib plots.
         """
-        t = np.linspace(0, 1, 100)
-
+        return_flag = False
         if ax is None:
             _, ax = plt.subplots()
+            return_flag = True
+
+        t = np.linspace(0, 1, 100)
 
         if mirrored:
             ax.plot(-self.curve(self.axes[0], t), self.curve(self.axes[1], t), *args, **kwargs)
@@ -286,6 +271,9 @@ class Bezier:
         
         ax.set_xlabel(self.axes[0])
         ax.set_ylabel(self.axes[1])
+
+        if return_flag:
+            return ax
 
 
 if __name__ == '__main__':
