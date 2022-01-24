@@ -11,4 +11,4 @@ bin-int/
 .ipynb_checkpoints
 
 # temporary ignore
-code/C++/
+src/C++/
