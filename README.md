@@ -20,24 +20,34 @@ When I started to write the code, I had very little experience with python so so
 - fluid
 - matplotlib (only for 2D plot of waverider)
 - plotly (only for 3D plot of waverider)
-- tringle (only for contour plots and 3D plot of waverider)
+- triangle (only for contour plots and 3D plot of waverider)
 - xlsxwriter (only to output the points in .xlsx file)
 
 # Setting up the virtual environment
 The process described below is for a windows machine but it is similar for a linux machine.
 
-You can create a virual environment using either conda or venv. For venv open Command Prompt or Powershell in the directory and type: 
+## Using Conda
+Open Terminal, Command Prompt or Powershell in the directory and type: 
+```
+conda env create -f environment.yml
+```
+Activate the environment by typing:
+```
+conda activate waverider
+```
+
+## Using venv
+Open Command Prompt or Powershell in the directory and type: 
 ```
 python -m venv ./venv
 ```
-
 To install the dependencies first you need to activate the environment:
 ```
 venv\Scripts\Activate
 ```
 After venv is activated type:
 ```
-python -m pip install -r dependencies.txt
+python -m pip install -r requirements.txt
 ```
 Alternatively, you can install the dependancies listed above one by one using:
 ```
