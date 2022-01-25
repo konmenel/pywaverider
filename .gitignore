@@ -9,6 +9,7 @@ bin-int/
 /Bibliography
 /misc
 .ipynb_checkpoints
+/src/plots.ipynb
 
 # temporary ignore
 src/C++/
