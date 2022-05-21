@@ -1,5 +1,5 @@
 """The module responsible for the evaluation of the aerodynamic perfomance of a Waverider."""
-from typing import Tuple, Union
+from typing import Iterable, Tuple, Union
 import numpy as np
 import scipy.optimize as froot
 from streamline import set_stress_on_obj
@@ -30,7 +30,7 @@ def cf_solver(re_x: Union[float, np.ndarray], mach_d: Union[float, np.ndarray]) 
 
     cfi = 0.46/(np.log10(re_x)**2.6)
     # return froot.brentq(cf_fun, 0.01*cfi, cfi, xtol=1e-5, rtol=1e-7)
-    return froot.newton(cf_fun, 0.5*cfi, tol=2.48e-16)
+    return froot.newton(cf_fun, 0.1*cfi, tol=2.48e-16)
 
 
 def van_driest_method_(l_obj, x) -> Tuple[np.ndarray, np.ndarray]:
@@ -102,6 +102,37 @@ def van_driest_method(l_obj, x) -> Tuple[np.ndarray, np.ndarray]:
     return tw_ls, tw_us
 
 
+def find_ref_temp(temperature: Union[float, Iterable],
+                mach: Union[float, Iterable]) -> np.ndarray:
+    """Calculates and returns the reference temperature for a given mach and
+    temperature outside the boundary layer.
+
+    Parameters
+    ----------
+    temperature : Union[float, Iterable]
+        The temperature right outside the boundary layer. Can be either a float or
+        an array_like object
+    mach : Union[float, Iterable]
+        The Mach number right outside the boundary layer. Can be either a float or
+        an array_like object
+
+    Returns
+    -------
+    np.ndarray
+        The calculated reference temperature for each mach and temperature given. 
+    """
+    
+    if isinstance(temperature, Iterable):
+        temperature = np.array(temperature)
+        mach = np.array(mach)
+    
+    temp_0 = temperature * (1. + ((cfg.GAM - 1) / 2) * mach ** 2)
+    temp_w = temperature + 0.88 * (temp_0 - temperature)
+    temperature = (temperature * 
+        (1. + 0.032 * mach ** 2 + 0.58 * (temp_w / temperature - 1.)))
+    return temperature
+
+
 def ref_temp_method_(l_obj, x) -> Tuple[np.ndarray, np.ndarray]:
     """Function that returns the wall shear stress of the plane using the Reference Temperature method.
     Inputs:
@@ -166,9 +197,10 @@ def ref_temp_method(l_obj, x) -> Tuple[np.ndarray, np.ndarray]:
     
     # Lower Surface
     ad = np.sqrt(cfg.GAM * cfg.R_GAS * l_obj.T / cfg.MB_AIR)
-    T0 = l_obj.T * (1. + ((cfg.GAM - 1) / 2) * l_obj.M ** 2)
-    Tw = l_obj.T + r * (T0 - l_obj.T)
-    Tref = l_obj.T * (1. + 0.032 * l_obj.M ** 2 + 0.58 * (Tw / l_obj.T - 1.))
+    # T0 = l_obj.T * (1. + ((cfg.GAM - 1) / 2) * l_obj.M ** 2)
+    # Tw = l_obj.T + r * (T0 - l_obj.T)
+    # Tref = l_obj.T * (1. + 0.032 * l_obj.M ** 2 + 0.58 * (Tw / l_obj.T - 1.))
+    Tref = find_ref_temp(l_obj.T, l_obj.M)
     miref = (1.458e-6 * Tref ** 1.5) / (Tref + 110.4)
     rhoref = l_obj.P / (cfg.R_GAS * Tref / cfg.MB_AIR)
     re_x = (rhoref * l_obj.M * ad * x / miref)
@@ -176,9 +208,10 @@ def ref_temp_method(l_obj, x) -> Tuple[np.ndarray, np.ndarray]:
     tw_ls[1:] = 0.5 * rhoref[1:] * c_f * (l_obj.M[1:] * ad[1:]) ** 2
 
     # Upper Surface
-    T0_us = cfg.ATM.T*(1. + ((cfg.GAM - 1)/2)*cfg.MINF**2)
-    Tw_us = cfg.ATM.T + r*(T0_us - cfg.ATM.T)
-    Tref_us = cfg.ATM.T*(1. + 0.032*cfg.MINF**2 + 0.58*(Tw_us/cfg.ATM.T - 1.))
+    # T0_us = cfg.ATM.T*(1. + ((cfg.GAM - 1)/2)*cfg.MINF**2)
+    # Tw_us = cfg.ATM.T + r*(T0_us - cfg.ATM.T)
+    # Tref_us = cfg.ATM.T*(1. + 0.032*cfg.MINF**2 + 0.58*(Tw_us/cfg.ATM.T - 1.))
+    Tref_us = find_ref_temp(cfg.ATM.T, cfg.MINF)
     miref_us = (1.458e-6*Tref_us**1.5)/(Tref_us + 110.4)
     rhoref_us = cfg.ATM.P/(cfg.R_GAS*Tref_us/cfg.MB_AIR)
     re_x = (rhoref_us * cfg.MINF * cfg.ATM.v_sonic * x / miref_us)
@@ -491,11 +524,12 @@ if __name__ == "__main__":
     import time
     from waverider import Waverider, WRInputs
 
-    results = results_load_json()
+    # results = results_load_json()
 
-    tic = time.time()
-    test_wr = Waverider(results['WR'])
-    toc = time.time() - tic
-    print(f'{toc=:0.4} sec, {test_wr.L_D=:0.6}, {test_wr.L*0.001=:0.6} kN')
+    # tic = time.time()
+    # test_wr = Waverider(results['WR'])
+    # toc = time.time() - tic
+    # print(f'{toc=:0.4} sec, {test_wr.L_D=:0.6}, {test_wr.L*0.001=:0.6} kN')
 
-    print(np.array(test_wr.inputs()))
+    # print(np.array(test_wr.inputs()))
+    print(find_ref_temp([204.], [4]))

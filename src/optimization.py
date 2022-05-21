@@ -113,7 +113,7 @@ def NelderMead(guess: wrdr.Waverider, optVar: str, minMax=-1, parms='ANMS', maxI
             in_[i] *= 1.05
         else:
             in_[i] += 0.1
-        in_ = in_.reInit()
+        in_ = in_.re_init()
 
         if in_.check():
             print(f'Waverider {i+1} First Check Error')

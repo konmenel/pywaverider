@@ -1,5 +1,6 @@
 """Module containing the necessary classes for the representation of a Waverider."""
 from functools import cached_property
+from fluids import pdf_Gates_Gaudin_Schuhman_basis_integral
 import numpy as np
 import matplotlib.pyplot as plt
 import plotly.offline
@@ -9,7 +10,8 @@ import bezier as bzr
 import streamline as sln
 import aerodynamics as aerod
 import config as cfg
-from typing import List, Union
+from typing import List, Optional, Union, Tuple
+from matplotlib.tri.tricontour import TriContourSet
 
 
 
@@ -107,7 +109,7 @@ class WRInputs:
         yplane_c = yplane[yplane > self.per_l*self.s]
         PLANES_C = len(yplane_c)
         PLANES_L = cfg.PLANES - PLANES_C
-        tsw_c = self.SW[1].normal_inter(yplane_c, 'y')
+        tsw_c = self.SW[-1].normal_inter(yplane_c, 'y')
         tsw_c[-1] = 1.
         
         tint = np.empty(cfg.PLANES)
@@ -115,7 +117,7 @@ class WRInputs:
         dint = np.empty(cfg.PLANES)
 
         RC[:PLANES_L] = np.inf*np.ones([PLANES_L])
-        RC[PLANES_L:] = self.SW[1].radius_curv(tsw_c)
+        RC[PLANES_L:] = self.SW[-1].radius_curv(tsw_c)
         
         if any(self.LE.der1('y', np.linspace(0, 1, 100)) < 0):
             return True
@@ -126,20 +128,20 @@ class WRInputs:
                 dint[i] = self.SW[0].z[0] - self.LE.curve('z', tint[i])
             else:
                 j = i-PLANES_L
-                k = np.tan(self.SW[1].normal_phi(tsw_c[j]))
-                a = self.SW[1].normal_b(tsw_c[j])
+                k = np.tan(self.SW[-1].normal_phi(tsw_c[j]))
+                a = self.SW[-1].normal_b(tsw_c[j])
                 temp = self.LE.line_inter(k, a)
                 # No intersection between normal and L.E. 
                 if temp.size == 0:
                     return True
                 # Intersection between L.E. and Shockwave curve
-                if (self.LE.curve('z', temp) >= self.SW[1].curve('z', tsw_c[j]) or
-                self.LE.curve('y', temp) > self.SW[1].curve('y', tsw_c[j])):
+                if (self.LE.curve('z', temp) >= self.SW[-1].curve('z', tsw_c[j]) or
+                self.LE.curve('y', temp) > self.SW[-1].curve('y', tsw_c[j])):
                     return True
 
                 tint[i] = temp
-                dint[i] = np.sqrt((self.LE.curve('y', tint[i]) - self.SW[1].curve('y', tsw_c[j])) ** 2 +\
-                                (self.LE.curve('z', tint[i]) - self.SW[1].curve('z', tsw_c[j])) ** 2)
+                dint[i] = np.sqrt((self.LE.curve('y', tint[i]) - self.SW[-1].curve('y', tsw_c[j])) ** 2 +\
+                                (self.LE.curve('z', tint[i]) - self.SW[-1].curve('z', tsw_c[j])) ** 2)
             
         tint[-1] = 1.   
         dint[-1] = 0.
@@ -151,10 +153,10 @@ class WRInputs:
         # Minimum thickness constraint
         Y = 0.98*self.s
         tup = self.LE.normal_inter(Y, 'y')
-        tdown = self.SW[1].normal_inter(Y, 'y')
+        tdown = self.SW[-1].normal_inter(Y, 'y')
         if tup.size == 0  or tdown.size == 0:
             return True
-        thickness = np.abs(self.LE.curve('z', tup) - self.SW[1].curve('z', tdown))
+        thickness = np.abs(self.LE.curve('z', tup) - self.SW[-1].curve('z', tdown))
         if thickness < 0.015*self.s:
             return True
         
@@ -168,7 +170,7 @@ class WRInputs:
         }
         return False
 
-    def reInit(self) -> 'WRInputs':
+    def re_init(self) -> 'WRInputs':
         return WRInputs(self.b, self.s, self.l, self.per_l, self.yle, self.zle)
     
     def __repr__(self) -> str:
@@ -435,14 +437,14 @@ class Waverider:
     LS: np.ndarray
     US: np.ndarray
     BS: np.ndarray
-    L: float
-    D: float
-    V: float
-    S: float
-    CL: float
-    CD: float
-    volEff: float
-    L_D: float
+    L: float = 0.
+    D: float = 0.
+    V: float = 0.
+    S: float = 0.
+    CL: float = 0.
+    CD: float = 0.
+    volEff: float = .0
+    L_D: float = 0.
 
     # Method properties
     L_loss: float
@@ -452,7 +454,7 @@ class Waverider:
     S_base: float
     D_base: float
 
-    def __init__(self, wr_in: Union[WRInputs, dict]):
+    def __init__(self, wr_in: Union[WRInputs, dict], aero_run: bool=True):
         # if the inputs are given in dictionary format unpack them and
         # create the WRInputs object.
         if isinstance(wr_in, dict):
@@ -470,34 +472,41 @@ class Waverider:
         self.LE = wr_in.LE
         self.SW = wr_in.SW
          
-        # Distance if intersection and radius of curviture calculation
+        # Distance of intersection and radius of curviture calculation
         if wr_in.Cones is None:
-            yplane = np.linspace(0, self.s, cfg.PLANES)
-            yplane_c = yplane[yplane > self.per_l * self.s]
+            yplane = np.linspace(0., self.s, cfg.PLANES)
+            yplane_c = yplane[yplane >= self.per_l * self.s]
             PLANES_C = len(yplane_c)
             PLANES_L = cfg.PLANES - PLANES_C
 
-            tsw_c = self.SW[1].normal_inter(yplane_c, 'y')
-            tsw_c[-1] = 1.
             tint = np.empty(cfg.PLANES)
             RC = np.empty(cfg.PLANES)
             dint = np.empty(cfg.PLANES)
-
+            
             RC[:PLANES_L] = np.inf*np.ones([PLANES_L])
-            RC[PLANES_L:] = self.SW[1].radius_curv(tsw_c)
+            if PLANES_C > 0:
+                tsw_c = self.SW[-1].normal_inter(yplane_c, 'y')
+                tsw_c[-1] = 1.
+                RC[PLANES_L:] = self.SW[-1].radius_curv(tsw_c)
+            else:
+                tsw_c = np.array([1.])
+
             
             for i in range(cfg.PLANES-1):
                 if i <= PLANES_L-1:
                     tint[i] = self.LE.normal_inter(yplane[i], 'y')
                     dint[i] = self.SW[0].z[0] - self.LE.curve('z', tint[i])
+                elif i == PLANES_L:
+                    tint[i] = 0.
+                    dint[i] = self.SW[-1].z[0] - self.LE.curve('z', 0.)
                 else:
                     j = i-PLANES_L
-                    k = np.tan(self.SW[1].normal_phi(tsw_c[j]))
-                    b = self.SW[1].normal_b(tsw_c[j])
+                    k = np.tan(self.SW[-1].normal_phi(tsw_c[j]))
+                    b = self.SW[-1].normal_b(tsw_c[j])
                     tint[i] = self.LE.line_inter(k, b)
-                    dint[i] = np.sqrt((self.LE.curve('y', tint[i]) - self.SW[1].curve('y', tsw_c[j])) ** 2 +\
-                                    (self.LE.curve('z', tint[i]) - self.SW[1].curve('z', tsw_c[j])) ** 2)
-                
+                    dint[i] = np.sqrt((self.LE.curve('y', tint[i]) - self.SW[-1].curve('y', tsw_c[j])) ** 2 +\
+                                    (self.LE.curve('z', tint[i]) - self.SW[-1].curve('z', tsw_c[j])) ** 2)
+
             tint[-1] = 1.
             dint[-1] = 0.
             self.Cones_cache = {
@@ -519,7 +528,7 @@ class Waverider:
         Taylor = sln.TaylorMaccoll(cfg.MINF, self.b)
 
         # Geometry Generation
-        Dt = (dint[PLANES_L] / np.tan(self.b * np.pi / 180))/ \
+        Dt = (dint[cfg.PLANES-PLANES_C] / np.tan(self.b * np.pi / 180))/ \
             (np.sqrt(2 * cfg.CP * cfg.ATM.T +
              (cfg.MINF * cfg.ATM.v_sonic) ** 2) * Taylor.V[-1]) / cfg.N_POINTS
         
@@ -528,7 +537,7 @@ class Waverider:
         self.BS = np.empty(cfg.PLANES, dtype=object)
 
         for i in range(cfg.PLANES):
-            if i < PLANES_L:
+            if i < PLANES_L and i != cfg.PLANES-1:
                 self.LS[i] = sln.Wedge(cfg.MINF, self.b, dint[i], cfg.N_POINTS)
                 ysw = yplane[i]
                 zsw = self.SW[0].z[0]
@@ -537,19 +546,23 @@ class Waverider:
             elif i >= PLANES_L and i != cfg.PLANES-1:
                 self.LS[i] = sln.Cone(cfg.MINF, self.b, RC[i], dint[i], Taylor, Dt)
                 ysw = yplane[i]
-                zsw = self.SW[1].curve('z', tsw_c[i-PLANES_L])
-                phi = self.SW[1].normal_phi(tsw_c[i-PLANES_L])
+                zsw = self.SW[-1].curve('z', tsw_c[i-PLANES_L])
+                phi = self.SW[-1].normal_phi(tsw_c[i-PLANES_L])
                 self.LS[i].coor_change(ysw, zsw, phi)
                 
             else:
-                self.LS[i] = sln.Edge(Taylor, self.SW[1].y[-1], self.SW[1].z[-1])
+                self.LS[i] = sln.Edge(Taylor, self.SW[-1].y[-1], self.SW[-1].z[-1])
             
             self.US[i] = sln.Upper(self.LS[i])
             self.BS[i] = sln.Base(self.LS[i])
+        
+        if aero_run:
+            self.aero_perf(PLANES_L)
 
+    def aero_perf(self, planes_l):
         # Aerodynamics Run
         phi = (np.pi/2) * np.ones(cfg.PLANES)
-        phi[PLANES_L:] = self.SW[1].normal_phi(tsw_c)
+        phi[planes_l:] = self.SW[-1].normal_phi(self.Cones_cache['tsw_c'])
         aero = aerod.Aero3d(self, phi)
         self.L = aero.L
         self.D = aero.D
@@ -569,11 +582,11 @@ class Waverider:
         yplane = np.linspace(0, self.s, cfg.PLANES)
         yplane_c = yplane[yplane > self.per_l * self.s]
         PLANES_L = cfg.PLANES - len(yplane_c)
-        tsw_c = self.SW[1].normal_inter(yplane_c, 'y')
+        tsw_c = self.SW[-1].normal_inter(yplane_c, 'y')
         tsw_c[-1] = 1.
 
         phi = (np.pi/2) * np.ones(cfg.PLANES)
-        phi[PLANES_L:] = self.SW[1].normal_phi(tsw_c)
+        phi[PLANES_L:] = self.SW[-1].normal_phi(tsw_c)
         
         return aerod.Aero3d.lift_loss(self, phi)
 
@@ -609,7 +622,7 @@ class Waverider:
         return (cfg.ATM.P - p_base) * s_base
 
     @cached_property
-    def _boundaryIndeces(self) -> List[int]:
+    def _boundary_indeces(self) -> List[int]:
         seg = [(0, self.LS[0].N)]
         # Leading edge loop
         for i in range(1, len(self.LS) - 1):
@@ -678,7 +691,7 @@ class Waverider:
             return True
         return False
 
-    def getAllPlaneDataInLine(self, surface: str, attr: str) -> List[float]:
+    def get_all_data_in_line(self, surface: str, attr: str) -> List[float]:
         """Method to get the data of all planes in one continuous list. 
         (i.e. LS.x of all planes)
 
@@ -696,7 +709,7 @@ class Waverider:
         """
         surface_map = {'upper': self.US, 'lower': self.LS, 'base': self.BS}
         data = []
-        for surf in  surface_map[surface]:
+        for surf in surface_map[surface]:
             if surf.N != 1:
                 data.extend(list(getattr(surf, attr)))
             else:
@@ -704,7 +717,7 @@ class Waverider:
 
         return data
 
-    def getAllPlaneShearInLine(self, surface: str) -> List[float]:
+    def get_all_shear_in_line(self, surface: str) -> List[float]:
         """Method to get the data of all planes in one continuous list. 
         (i.e. LS.x of all planes)
 
@@ -772,7 +785,8 @@ class Waverider:
         if return_flag:
             return ax
 
-    def plotStress(self, surface='lower', ax=None, plot3d=False):
+    def plotStress(self, surface='lower', ax=None, plot3d=False,
+                    *, levels=100, colormap='jet'):
         """Plots the wall shear stress on top on the surface.
         Arguments:
             surface: a string for to specify the surface (`upper` or `lower`)
@@ -784,23 +798,21 @@ class Waverider:
             return
 
         # For plotting
-        levels = 100
-        colormap = 'jet'
         return_flag = False
 
         # Indeces of Waverider bountaries
-        seg = self._boundaryIndeces
+        seg = self._boundary_indeces
         
         # 3D plot
         if plot3d:
-            xls = self.getAllPlaneDataInLine('lower', 'x')
-            yls = self.getAllPlaneDataInLine('lower', 'y')
-            zls = self.getAllPlaneDataInLine('lower', 'z')
-            tls = self.getAllPlaneShearInLine('lower')
-            xus = self.getAllPlaneDataInLine('upper', 'x')
-            yus = self.getAllPlaneDataInLine('upper', 'y')
-            zus = self.getAllPlaneDataInLine('upper', 'z')
-            tus = self.getAllPlaneShearInLine('upper')
+            xls = self.get_all_data_in_line('lower', 'x')
+            yls = self.get_all_data_in_line('lower', 'y')
+            zls = self.get_all_data_in_line('lower', 'z')
+            tls = self.get_all_shear_in_line('lower')
+            xus = self.get_all_data_in_line('upper', 'x')
+            yus = self.get_all_data_in_line('upper', 'y')
+            zus = self.get_all_data_in_line('upper', 'z')
+            tus = self.get_all_shear_in_line('upper')
 
             points_ls = np.stack((xls, yls), axis=1)
             A_ls = dict(
@@ -851,10 +863,10 @@ class Waverider:
             _, ax = plt.subplots()
             return_flag = True
 
-        x = self.getAllPlaneDataInLine(surface, 'x')
-        y = self.getAllPlaneDataInLine(surface, 'y')
+        x = self.get_all_data_in_line(surface, 'x')
+        y = self.get_all_data_in_line(surface, 'y')
 
-        tw = self.getAllPlaneShearInLine(surface)
+        tw = self.get_all_shear_in_line(surface)
         # for i, plane in enumerate(self.LS):
         #     if i < cfg.PLANES - 1:
         #         length = np.abs(plane.x[0] - plane.x[-1])
@@ -897,7 +909,8 @@ class Waverider:
         if return_flag:
             return ax
 
-    def plotPressure(self, surface='lower', ax=None, plot3d=False):
+    def plotPressure(self, surface='lower', ax=None, plot3d=False,
+                    *, levels=100, colormap='jet'):
         """Plots the pressure on top on the surface.
         Arguments:
             surface: a string for to specify the surface (`upper` or `lower`)
@@ -906,23 +919,21 @@ class Waverider:
         """
 
         # For Plotting
-        levels = 100
-        colormap = 'jet'
         return_flag = False
 
         # Indeces of Waverider bountaries
-        seg = self._boundaryIndeces
+        seg = self._boundary_indeces
 
         # 3D plot
         if plot3d:
-            xls = self.getAllPlaneDataInLine('lower', 'x')
-            yls = self.getAllPlaneDataInLine('lower', 'y')
-            zls = self.getAllPlaneDataInLine('lower', 'z')
-            Pls = self.getAllPlaneDataInLine('lower', 'P')
-            xus = self.getAllPlaneDataInLine('upper', 'x')
-            yus = self.getAllPlaneDataInLine('upper', 'y')
-            zus = self.getAllPlaneDataInLine('upper', 'z')
-            Pus = self.getAllPlaneDataInLine('upper', 'P')
+            xls = self.get_all_data_in_line('lower', 'x')
+            yls = self.get_all_data_in_line('lower', 'y')
+            zls = self.get_all_data_in_line('lower', 'z')
+            Pls = self.get_all_data_in_line('lower', 'P')
+            xus = self.get_all_data_in_line('upper', 'x')
+            yus = self.get_all_data_in_line('upper', 'y')
+            zus = self.get_all_data_in_line('upper', 'z')
+            Pus = self.get_all_data_in_line('upper', 'P')
 
             points_ls = np.stack((xls, yls), axis=1)
             A_ls = dict(
@@ -973,9 +984,9 @@ class Waverider:
             _, ax = plt.subplots()
             return_flag = True
 
-        x = self.getAllPlaneDataInLine(surface, 'x')
-        y = self.getAllPlaneDataInLine(surface, 'y')
-        pressure = self.getAllPlaneDataInLine(surface, 'P')
+        x = self.get_all_data_in_line(surface, 'x')
+        y = self.get_all_data_in_line(surface, 'y')
+        pressure = self.get_all_data_in_line(surface, 'P')
         # if surface == 'lower':
         #     for plane in self.LS:
         #         x.extend(plane.x)
@@ -1014,48 +1025,84 @@ class Waverider:
         if return_flag:
             return ax
 
-    def plotTemperature(self, surface='lower', ax=None, ref=False, plot3d=False):
-        """Plots the pressure on top on the surface.
-        Arguments:
-            surface: a string for to specify the surface (`upper` or `lower`)
-            ax: the matplotlib.axes.Axes object to plot on. If not given the
-            function will create one and return it.
-            ref: boolean. If true plot the reference temperature used for the viscous
-            calculations (default=False).
+    def plot_contour(self, data: str, surface: str='lower', *, 
+                    ax: Optional[plt.Axes]=None, ref: bool=False, full_span: bool=False,
+                    plot3d: bool=False, levels: Union[int, List]=100, cmap: str='jet',
+                    colorscale: str= 'jet', **kwargs) -> Union[
+                        None, TriContourSet, Tuple[plt.Axes, TriContourSet]]:
+        """Create a contour plot on the surface of the waverider.
+
+        Parameters
+        ----------
+        data : str
+            The data to be plotted. Can be either the name of one of the properties
+            of the a `streamline._Streamline` object or 'pressure', 'temperature' or 
+            'shear'.
+        surface : str, optional
+            A string for to specify the surface. Must be 'upper' or 'lower',
+            by default 'lower'. Ignored if `plot3d=True`.
+        ax : Optional[matplotlib.axes.Axes], optional
+            The `Axes` object to plot on. If not given the function will create one
+            and return it, by default `None`.
+        ref : bool, optional
+            If `True` the reference temperature will be plotted instead of the
+            Taylor-Maccoll temperature. Only applicable if temperature is plotted,
+            by default `False`.
+        full_span : bool, optional
+            If `True` the full waverider will be plotted, otherwise only half is plotted,
+            by default `False`. Only applicable for 2D plot.
+        plot3d : bool, optional
+            If true a 3D plot is produced instead, by default `False`.
+        levels : Union[int, List], optional
+            _description_, by default `100`
+        colormap : str, optional
+            _description_, by default 'jet'
+        pltoptions : Optional[dict], optional
+            _description_, by default `None`
+
+        Returns
+        -------
+        matplotlib.tri.contour.TriContourSet, Optional
+            The return of `matplotlib.axes.Axes.tricontourf`. Only return for 2D plotting. 
+        matplotlib.axes.Axes, Optional
+            If `ax=None` returns the new `Axes` object that the data were plotted on.
         """
         # For plotting
-        levels = 100
-        colormap = 'jet'
         return_flag = False
+
+        # Data parsing
+        if data.lower() == "pressure":
+            data = 'P'
+        elif data.lower() == 'temperature':
+            data = 'T'
+        
+        
+        if data in ['shear', 'tw']:
+            if not cfg.VISCOUS:
+                raise Exception('Cannot plot shear stress for inviscid case!')
+
+            get_data_func = lambda _surf, _data: self.get_all_shear_in_line(_surf)
+        else:
+            get_data_func = lambda _surf, _data: self.get_all_data_in_line(_surf, _data)
+        
         
         # Indeces of Waverider bountaries
-        seg = self._boundaryIndeces
+        seg = self._boundary_indeces
         
         # 3D plot
         if plot3d:
-            xls = self.getAllPlaneDataInLine('lower', 'x')
-            yls = self.getAllPlaneDataInLine('lower', 'y')
-            zls = self.getAllPlaneDataInLine('lower', 'z')
-            Tls = self.getAllPlaneDataInLine('lower', 'T')
-            xus = self.getAllPlaneDataInLine('upper', 'x')
-            yus = self.getAllPlaneDataInLine('upper', 'y')
-            zus = self.getAllPlaneDataInLine('upper', 'z')
-            Tus = self.getAllPlaneDataInLine('upper', 'T')
+            xls = self.get_all_data_in_line('lower', 'x')
+            yls = self.get_all_data_in_line('lower', 'y')
+            zls = self.get_all_data_in_line('lower', 'z')
+            datls = get_data_func('lower', data)
+            xus = self.get_all_data_in_line('upper', 'x')
+            yus = self.get_all_data_in_line('upper', 'y')
+            zus = self.get_all_data_in_line('upper', 'z')
+            datus = get_data_func('upper', data)
 
-            if ref:
-                Mls = self.getAllPlaneDataInLine('lower', 'M')
-                Tls = np.array(Tls)
-                Mls = np.array(Mls)
-                T0 = Tls * (1. + ((cfg.GAM - 1) / 2) * Mls ** 2)
-                Tw = Tls + 0.88 * (T0 - Tls)
-                Tls = Tls * (1. + 0.032 * Mls ** 2 + 0.58 * (Tw / Tls - 1.))
-                
-                Mus = self.getAllPlaneDataInLine('upper', 'M')
-                Tus = np.array(Tus)
-                Mus = np.array(Mus)
-                T0 = Tus * (1. + ((cfg.GAM - 1) / 2) * Mus ** 2)
-                Tw = Tus + 0.88 * (T0 - Tus)
-                Tus = Tus * (1. + 0.032 * Mus ** 2 + 0.58 * (Tw / Tus - 1.))
+            if data == 'T' and ref:
+                datls = aerod.find_ref_temp(datls, self.get_all_data_in_line('lower', 'M'))
+                datus = aerod.find_ref_temp(datus, self.get_all_data_in_line('upper', 'M'))
 
             points_ls = np.stack((xls, yls), axis=1)
             A_ls = dict(
@@ -1076,22 +1123,22 @@ class Waverider:
                             i=[i[0] for i in tri_ls['triangles']],
                             j=[i[1] for i in tri_ls['triangles']],
                             k=[i[2] for i in tri_ls['triangles']],
-                            intensity=Tls, colorscale=colormap)
+                            intensity=datls, colorscale=colorscale)
             data1 = go.Mesh3d(x=xus, y=yus, z=-np.array(zus),
                             i=[i[0] for i in tri_us['triangles']],
                             j=[i[1] for i in tri_us['triangles']],
                             k=[i[2] for i in tri_us['triangles']],
-                            intensity=Tus, colorscale=colormap)
+                            intensity=datus, colorscale=colorscale)
             data2 = go.Mesh3d(x=xls, y=-np.array(yls), z=-np.array(zls),
                             i=[i[0] for i in tri_ls['triangles']],
                             j=[i[1] for i in tri_ls['triangles']],
                             k=[i[2] for i in tri_ls['triangles']],
-                            intensity=Tls, colorscale=colormap)
+                            intensity=datls, colorscale=colorscale)
             data3 = go.Mesh3d(x=xus, y=-np.array(yus), z=-np.array(zus),
                             i=[i[0] for i in tri_us['triangles']],
                             j=[i[1] for i in tri_us['triangles']],
                             k=[i[2] for i in tri_us['triangles']],
-                            intensity=Tus, colorscale=colormap)
+                            intensity=datus, colorscale=colorscale)
 
             fig = go.Figure(data=[data0, data1, data2, data3])
             fig.update_layout(scene=dict(yaxis = dict(range=[-self.l/2, self.l/2]),
@@ -1107,17 +1154,12 @@ class Waverider:
             return_flag = True
 
 
-        x = self.getAllPlaneDataInLine(surface, 'x')
-        y = self.getAllPlaneDataInLine(surface, 'y')
-        T = self.getAllPlaneDataInLine(surface, 'T')
+        x = self.get_all_data_in_line(surface, 'x')
+        y = self.get_all_data_in_line(surface, 'y')
+        dat = get_data_func(surface, data)
         
-        if ref:
-            M = self.getAllPlaneDataInLine(surface, 'M')
-            T = np.array(T)
-            M = np.array(M)
-            T0 = T * (1. + ((cfg.GAM - 1) / 2) * M ** 2)
-            Tw = T + 0.88 * (T0 - T)
-            T = T * (1. + 0.032 * M ** 2 + 0.58 * (Tw / T - 1.))
+        if data == 'T' and ref:
+            dat = aerod.find_ref_temp(dat, self.get_all_data_in_line('lower', 'M'))
 
         vert = np.stack((x, y), axis=1)
         tri = dict(
@@ -1127,32 +1169,31 @@ class Waverider:
             
         )
         tri = tr.triangulate(tri, 'p')
-
         # Plotting
-        ax.tricontourf(y, x, tri['triangles'], T, levels, cmap=colormap)
-        cntr = ax.tricontourf([-i for i in y], x, tri['triangles'], T, levels, cmap=colormap)
-        
-        cbar = plt.gcf().colorbar(cntr, ax=ax)
-        cbar.set_label('Temperature [K]')
-        ax.set_title(f'{surface.capitalize()} Surface Temperature Contour')
+        cntr = ax.tricontourf(y, x, tri['triangles'], dat, levels, cmap=cmap, **kwargs)
+        cntr2 = ax.tricontour(y, x, tri['triangles'], dat, levels,
+                    colors=[(0., 0., 0., 0.2)], linewidths=1)
+        if full_span:
+            ax.tricontourf([-i for i in y], x, tri['triangles'], dat, levels, cmap=cmap, **kwargs)
+            ax.tricontour([-i for i in y], x, tri['triangles'], dat, levels, 
+                colors=[(0., 0., 0., 0.2)], linewidths=1)
+
         ax.axis('equal')
-        ax.set_ylabel('x [m]')
-        ax.set_xlabel('y [m]')
-        ax.grid()
 
         if return_flag:
-            return ax
+            return [cntr, cntr2], ax
+        return [cntr, cntr2]
 
     def plot3d(self, plotOffline=False):
-        xls = self.getAllPlaneDataInLine('lower', 'x')
-        yls = self.getAllPlaneDataInLine('lower', 'y')
-        zls = self.getAllPlaneDataInLine('lower', 'z')
-        xus = self.getAllPlaneDataInLine('upper', 'x')
-        yus = self.getAllPlaneDataInLine('upper', 'y')
-        zus = self.getAllPlaneDataInLine('upper', 'z')
+        xls = self.get_all_data_in_line('lower', 'x')
+        yls = self.get_all_data_in_line('lower', 'y')
+        zls = self.get_all_data_in_line('lower', 'z')
+        xus = self.get_all_data_in_line('upper', 'x')
+        yus = self.get_all_data_in_line('upper', 'y')
+        zus = self.get_all_data_in_line('upper', 'z')
 
         # Indeces of Waverider boundaries
-        seg = self._boundaryIndeces
+        seg = self._boundary_indeces
 
         points_ls = np.stack((xls, yls), axis=1)
         A_ls = dict(
@@ -1173,22 +1214,22 @@ class Waverider:
                           i=[i[0] for i in tri_ls['triangles']],
                           j=[i[1] for i in tri_ls['triangles']],
                           k=[i[2] for i in tri_ls['triangles']],
-                          color='red')
+                          lighting={'ambient': 0.3}, color='red')
         data1 = go.Mesh3d(x=xus, y=yus, z=-np.array(zus),
                           i=[i[0] for i in tri_us['triangles']],
                           j=[i[1] for i in tri_us['triangles']],
                           k=[i[2] for i in tri_us['triangles']],
-                          color='blue')
+                          lighting={'ambient': 0.3}, color='blue')
         data2 = go.Mesh3d(x=xls, y=-np.array(yls), z=-np.array(zls),
                           i=[i[0] for i in tri_ls['triangles']],
                           j=[i[1] for i in tri_ls['triangles']],
                           k=[i[2] for i in tri_ls['triangles']],
-                          color='red')
+                          lighting={'ambient': 0.3}, color='red')
         data3 = go.Mesh3d(x=xus, y=-np.array(yus), z=-np.array(zus),
                           i=[i[0] for i in tri_us['triangles']],
                           j=[i[1] for i in tri_us['triangles']],
                           k=[i[2] for i in tri_us['triangles']],
-                          color='blue')
+                          lighting={'ambient': 0.3}, color='blue')
         
         if plotOffline:
             # Offline Plot (creating HTML file)
@@ -1216,20 +1257,20 @@ class Waverider:
         
         self.LE.plot(ax, False ,'b')
         self.SW[0].plot(ax, False, 'k')
-        self.SW[1].plot(ax, False, 'k', label=None)
+        self.SW[-1].plot(ax, False, 'k', label=None)
         ax.axis('equal')
         ax.set_autoscale_on(False)
 
         ys = self.Cones_cache['yplane']
         for i in range(0, len(self.LS), 2):   
-            if ys[i] < self.SW[1].y[0]:
+            if ys[i] < self.SW[-1].y[0]:
                 t = self.SW[0].normal_inter(ys[i], 'y')
                 self.SW[0].plot_radius(t, ax, '--xk', linewidth=0.5)
             else:
                 idx = i - self.Cones_cache['PLANES_L']
                 t = self.Cones_cache['tsw_c'][idx]
-                self.SW[1].plot_radius(t, ax, '--xk', linewidth=0.5)
-        self.SW[1].plot_radius(self.Cones_cache['tsw_c'][-1], ax, '--xk', linewidth=0.5) 
+                self.SW[-1].plot_radius(t, ax, '--xk', linewidth=0.5)
+        self.SW[-1].plot_radius(self.Cones_cache['tsw_c'][-1], ax, '--xk', linewidth=0.5) 
 
         m = np.max([self.s, self.SW[0].z[0]])*1.3
         ax.legend(['Leading Edge', 'Shockwave', 'Local Cone Radius'])
@@ -1253,11 +1294,11 @@ class Waverider:
 
         self.LE.plot(ax, False ,'b', label='Upper Surface')
         self.SW[0].plot(ax, False, '--k', label='Shockwave')
-        self.SW[1].plot(ax, False ,'--k', label=None)
+        self.SW[-1].plot(ax, False ,'--k', label=None)
 
         self.LE.plot(ax, True ,'b', label=None)
         self.SW[0].plot(ax, True, '--k', label=None)
-        self.SW[1].plot(ax, True ,'--k', label=None)
+        self.SW[-1].plot(ax, True ,'--k', label=None)
 
         ax.plot([i.y[-1] for i in self.LS],
                 [i.z[-1] for i in self.LS],
@@ -1328,12 +1369,12 @@ class Waverider:
         return {
             'b': self.b, 's': self.s, 'l': self.l, 'per_l': self.per_l,
             'yle': self.yle.tolist(), 'zle': self.zle.tolist()
-                }
+            }
 
 
 
 if __name__ == "__main__":
-    from config_modify import results_load_json, modify_config
+    from config_modify import results_load_json
 
     results = results_load_json()
 
@@ -1383,7 +1424,7 @@ if __name__ == "__main__":
     #     format='svg'
     # )
 
-    test_wr.plotRadius()
+    test_wr.plot_contour('pressure')
 
     plt.show()
     

@@ -82,24 +82,28 @@ def pickle_to_json_results() -> None:
         json.dump(json_results, output, indent=4)
    
 
-def export_planes() -> None:
+def export_planes(wr: wrdr.Waverider=None, filename: str=None) -> None:
     """Function that exports the waverider geometry to excel file. 
     One file per plane.
     """
-    # Load results
-    results, results_filename = results_load_json(second_output=True)
-    WR = wrdr.Waverider(wrdr.WRInputs(**results['WR']))
+    if wr is None:
+        # Load results
+        results, filename = results_load_json(second_output=True)
+        wr = wrdr.Waverider(wrdr.WRInputs(**results['WR']))
+
+    if wr is not None and filename is None:
+        raise Exception('Filename not given.')
 
     # Save Path
-    PATH = (((pathlib.Path(__file__)).parents[1]).joinpath('Results')).joinpath(results_filename)
+    PATH = (pathlib.Path(__file__)).parents[1] / 'Results' / filename
     PATH.mkdir(parents=True, exist_ok=True)
 
     # Create Excel files
-    for i, ls in enumerate(WR.LS):
+    for i, ls in enumerate(wr.LS):
         filename = PATH.joinpath(f"Plane {i}.xlsx")
         with xls.Workbook(filename) as workbook:
             worksheet = workbook.add_worksheet()
-            if ls != WR.LS[-1]:
+            if ls != wr.LS[-1]:
                 worksheet.write_column(0, 0, ls.x)
                 worksheet.write_column(0, 1, ls.y)
                 worksheet.write_column(0, 2, ls.z)
