@@ -7,12 +7,11 @@ When I started to write the code, I had very little experience with python so so
 
 # To do
 - [ ] Make it a command-line program 
-- [ ] Fix all docstrings (probably Numpy format)
+- [ ] Fix all docstrings
 - [ ] Code refactoring
-- [ ] Code optimazations
-- [ ] Find a reliable way to calculate the initial inputs
+- [ ] Code optimizations
 - [ ] Find more reliable optimization algorithms to escape local minima
-- [ ] Add user difined inputs (Generilize the tool)
+- [ ] Add user defined inputs (Generalize the tool)
 
 # Dependencies
 - numpy
