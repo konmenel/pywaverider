@@ -1,6 +1,22 @@
-"""Module containing the necessary classes for the representation of a Waverider."""
+# Copyright (C) 2023 Constantinos Menelaou <https://github.com/konmenel>
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+# @author: Constantinos Menelaou
+# @github: https://github.com/konmenel
+# @year: 2023
 from functools import cached_property
-from fluids import pdf_Gates_Gaudin_Schuhman_basis_integral
 import numpy as np
 import matplotlib.pyplot as plt
 import plotly.offline
@@ -576,12 +592,26 @@ class Waverider:
         self.L_D = aero.L / aero.D
 
     @cached_property
+    def line_planes(self) -> int:
+        """Function property that calculates the number of planes in
+        the line segment.
+
+        Returns
+        -------
+        int
+            The number of planes
+        """
+        yplane = np.linspace(0, self.s, cfg.PLANES)
+        yplane_c = yplane[yplane > self.per_l * self.s]
+        return cfg.PLANES - len(yplane_c)
+
+    @cached_property
     def L_loss(self) -> float:
         """Function to calculate the Lift loss."""
         # Code to calculate the angle of each plane (phi)
+        PLANES_L = self.line_planes
         yplane = np.linspace(0, self.s, cfg.PLANES)
         yplane_c = yplane[yplane > self.per_l * self.s]
-        PLANES_L = cfg.PLANES - len(yplane_c)
         tsw_c = self.SW[-1].normal_inter(yplane_c, 'y')
         tsw_c[-1] = 1.
 

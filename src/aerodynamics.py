@@ -1,4 +1,21 @@
-"""The module responsible for the evaluation of the aerodynamic perfomance of a Waverider."""
+# Copyright (C) 2023 Constantinos Menelaou <https://github.com/konmenel>
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+# @author: Constantinos Menelaou
+# @github: https://github.com/konmenel
+# @year: 2023
 from typing import Iterable, Tuple, Union
 import numpy as np
 import scipy.optimize as froot
@@ -30,7 +47,7 @@ def cf_solver(re_x: Union[float, np.ndarray], mach_d: Union[float, np.ndarray]) 
 
     cfi = 0.46/(np.log10(re_x)**2.6)
     # return froot.brentq(cf_fun, 0.01*cfi, cfi, xtol=1e-5, rtol=1e-7)
-    return froot.newton(cf_fun, 0.1*cfi, tol=2.48e-16)
+    return froot.newton(cf_fun, 0.4*cfi, tol=2.48e-16)
 
 
 def van_driest_method_(l_obj, x) -> Tuple[np.ndarray, np.ndarray]:
