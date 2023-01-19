@@ -1,5 +1,5 @@
-# Introduction
-My code of a waverider design tool and results of the paper (still in progress).
+# PyWaverider
+***PyWaverider*** is a waverider design tool based on the osculating cones method using Bezier curves as the input. This is the tool used in the paper ***TBD***. 
 
 The tool computes the optimal waverider shape for a given mission. This is done using the *Nealder-Mead Simplex* optimization algorithm in order to find the geometry with the best *L/D* ratio for the specific mission. The geometry of the waverider is computed using a method called *osculating cones*, which an extension of the *cone-derived waveriders*.
 
@@ -14,6 +14,7 @@ When I started to write the code, I had very little experience with python so so
 - [ ] Add user defined inputs (Generalize the tool)
 
 # Dependencies
+- python 3.9
 - numpy
 - scipy
 - fluid
@@ -53,7 +54,7 @@ Alternatively, you can install the dependancies listed above one by one using:
 python -m pip install <nameofdependency>
 ```
 # Running the code
-To run the code on Windows you can simple run the `missionRun.bat` file. Alternatively, you can opening a terminal in the directory and typing the following command:
+To run the code just open the terminal in the root directory of the code and typing the following command:
 ```
 python src/main.py
 ```
