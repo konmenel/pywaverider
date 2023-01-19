@@ -56,6 +56,6 @@ python -m pip install <nameofdependency>
 # Running the code
 To run the code on Windows you can simple run the `missionRun.bat` file. Alternatively, you can opening a terminal in the directory and typing the following command:
 ```
-python Code/main.py
+python src/main.py
 ```
 A window will be displayed for you to choose the mission inputs
