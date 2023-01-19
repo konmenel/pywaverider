@@ -3,7 +3,7 @@ My code of a waverider design tool and results of the paper (still in progress).
 
 The tool computes the optimal waverider shape for a given mission. This is done using the *Nealder-Mead Simplex* optimization algorithm in order to find the geometry with the best *L/D* ratio for the specific mission. The geometry of the waverider is computed using a method called *osculating cones*, which an extension of the *cone-derived waveriders*.
 
-When I started to write the code, I had very little experience with python so some parts of the code are not considered pythonic. Also, there is very little optimization to the code.
+When I started to write the code, I had very little experience with python so some parts of the code are not *"pythonic"*. Also, it is very probable that there are many code optimizations to be done.
 
 # To do
 - [ ] Make it a command-line program 
