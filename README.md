@@ -28,34 +28,44 @@ The process described below is for a windows machine but it is similar for a lin
 
 ## Using Conda
 Open Terminal, Command Prompt or Powershell in the directory and type: 
-```
-conda env create -f environment.yml
+```console
+$ conda env create -f environment.yml
 ```
 Activate the environment by typing:
-```
-conda activate waverider
+```console
+$ conda activate waverider
 ```
 
 ## Using venv
 Open Command Prompt or Powershell in the directory and type: 
-```
-python -m venv ./venv
+```console
+$ python -m venv ./venv
 ```
 To install the dependencies first you need to activate the environment:
-```
-venv\Scripts\Activate
+```console
+$ venv\Scripts\Activate
 ```
 After venv is activated type:
-```
-python -m pip install -r requirements.txt
+```console
+$ python -m pip install -r requirements.txt
 ```
 Alternatively, you can install the dependancies listed above one by one using:
-```
-python -m pip install <nameofdependency>
+```console
+$ python -m pip install <nameofdependency>
 ```
 # Running the code
 To run the code just open the terminal in the root directory of the code and typing the following command:
-```
+```console
 python src/main.py
 ```
 A window will be displayed for you to choose the mission inputs
+
+# Displaying results
+After the optimization is finished you can see the results using:
+```console
+$ python src/results_run.py
+```
+This will lunch a window that will let you choose the output file you want to see. 
+
+You will be asked to if you want to create a 3D plot as well along with the 2D plots (Base, Top, and Local Radii 2D plots). Additioally, you will be asked if you want to create the plot using localhost or save it as an html file. The html files are saved in the directory `plots` (will be created if doesn't exists) in the format 
+`YYYY.MM.DD-hh.mm-<VISCOUS_TYPE>.html`.
