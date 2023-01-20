@@ -376,13 +376,13 @@ class Wedge(_Streamline):
             ((2 + (cfg.GAM - 1) * Mn1 ** 2) / ((cfg.GAM + 1) * Mn1 ** 2))
 
         # Length of crossection
-        L = dle/np.tan(b)
+        L = dle / np.tan(b)
 
         # Set properties
         self.N = N
         self.b = b*180/np.pi
         self.x = np.linspace(L, 0, N)
-        self.s = np.linspace(-dle, L*tand-dle, N)
+        self.s = np.linspace(-dle, L*tand - dle, N)
         self.P = P2P1*np.ones(N)*cfg.ATM.P
         self.T = T2T1*np.ones(N)*cfg.ATM.T
         self.M = M2*np.ones(N)
@@ -457,7 +457,7 @@ class Cone(_Streamline):
         M = np.interp(theta_s*180/np.pi, Taylor.theta, Taylor.M)
         V = np.interp(theta_s*180/np.pi, Taylor.theta, Taylor.V)
 
-        # Sistima sintetagmenon sti vasi konou
+        # Coordinate transform at base of cone
         x = L - x
         z = z - R
 

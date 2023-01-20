@@ -1,15 +1,16 @@
 venv/
 __pycache__
-*.sln
-bin/
-bin-int/
 *.user
 /Results
 /Transcript
 /Bibliography
 /misc
+plots/
 .ipynb_checkpoints
 /src/plots.ipynb
 
-# temporary ignore
+# temporary ignores for C++
+*.sln
+bin/
+bin-int/
 src/C++/

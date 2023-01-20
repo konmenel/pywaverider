@@ -16,18 +16,22 @@
 # @author: Constantinos Menelaou
 # @github: https://github.com/konmenel
 # @year: 2023
+import os
+import datetime
 from functools import cached_property
+from typing import List, Optional, Union, Tuple
+
 import numpy as np
 import matplotlib.pyplot as plt
 import plotly.offline
 import plotly.graph_objects as go
 import triangle as tr
+from matplotlib.tri.tricontour import TriContourSet
+
 import bezier as bzr
 import streamline as sln
 import aerodynamics as aerod
 import config as cfg
-from typing import List, Optional, Union, Tuple
-from matplotlib.tri.tricontour import TriContourSet
 
 
 
@@ -509,14 +513,14 @@ class Waverider:
 
             
             for i in range(cfg.PLANES-1):
-                if i <= PLANES_L-1:
+                if i <= PLANES_L:
                     tint[i] = self.LE.normal_inter(yplane[i], 'y')
                     dint[i] = self.SW[0].z[0] - self.LE.curve('z', tint[i])
-                elif i == PLANES_L:
-                    tint[i] = 0.
-                    dint[i] = self.SW[-1].z[0] - self.LE.curve('z', 0.)
+                # elif i == PLANES_L:
+                #     tint[i] = 0.
+                #     dint[i] = self.SW[-1].z[0] - self.LE.curve('z', 0.)
                 else:
-                    j = i-PLANES_L
+                    j = i - PLANES_L
                     k = np.tan(self.SW[-1].normal_phi(tsw_c[j]))
                     b = self.SW[-1].normal_b(tsw_c[j])
                     tint[i] = self.LE.line_inter(k, b)
@@ -553,19 +557,17 @@ class Waverider:
         self.BS = np.empty(cfg.PLANES, dtype=object)
 
         for i in range(cfg.PLANES):
-            if i < PLANES_L and i != cfg.PLANES-1:
+            if i <= PLANES_L and i != cfg.PLANES-1:
                 self.LS[i] = sln.Wedge(cfg.MINF, self.b, dint[i], cfg.N_POINTS)
                 ysw = yplane[i]
                 zsw = self.SW[0].z[0]
                 self.LS[i].coor_change(ysw, zsw)
-
-            elif i >= PLANES_L and i != cfg.PLANES-1:
+            elif i > PLANES_L and i != cfg.PLANES-1:
                 self.LS[i] = sln.Cone(cfg.MINF, self.b, RC[i], dint[i], Taylor, Dt)
                 ysw = yplane[i]
                 zsw = self.SW[-1].curve('z', tsw_c[i-PLANES_L])
                 phi = self.SW[-1].normal_phi(tsw_c[i-PLANES_L])
                 self.LS[i].coor_change(ysw, zsw, phi)
-                
             else:
                 self.LS[i] = sln.Edge(Taylor, self.SW[-1].y[-1], self.SW[-1].z[-1])
             
@@ -1261,23 +1263,33 @@ class Waverider:
                           k=[i[2] for i in tri_us['triangles']],
                           lighting={'ambient': 0.3}, color='blue')
         
+        # Creating HTML file
         if plotOffline:
-            # Offline Plot (creating HTML file)
+            if not os.path.exists("./plots"):
+                os.makedirs("./plots")
+            datetime_now = datetime.datetime.now()
+            datetime_now = datetime_now.strftime("%Y.%m.%d-%H.%M")
+            fname_plot = f"./plots/{datetime_now}-{cfg.CONFIG['Viscous Method']}.html"
+
             fig = plotly.offline.plot(
-                {"data": [data0, data1, data2, data3], 
-                "layout": go.Layout(scene=dict(yaxis = dict(range=[-self.l/2, self.l/2]),
-                                    zaxis = dict(range=[-self.l/2, self.l/2]),
-                                    xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
-                                    scene_aspectmode='cube')},
-                filename= cfg.CONFIG['Viscous Method'] + ".html")
-        else:
-            # Online Plot
-            fig = go.Figure(data=[data0, data1, data2, data3])
-            fig.update_layout(scene=dict(yaxis = dict(range=[-self.l/2, self.l/2]),
+                {
+                    "data": [data0, data1, data2, data3], 
+                    "layout": go.Layout(scene=dict(yaxis = dict(range=[-self.l/2, self.l/2]),
                                         zaxis = dict(range=[-self.l/2, self.l/2]),
                                         xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
                                         scene_aspectmode='cube')
-            fig.show()
+                },
+                filename=fname_plot
+            )
+            return
+        
+        # Online Plot
+        fig = go.Figure(data=[data0, data1, data2, data3])
+        fig.update_layout(scene=dict(yaxis = dict(range=[-self.l/2, self.l/2]),
+                                    zaxis = dict(range=[-self.l/2, self.l/2]),
+                                    xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
+                                    scene_aspectmode='cube')
+        fig.show()
 
     def plotRadius(self, ax=None):
         return_flag = False
@@ -1455,6 +1467,7 @@ if __name__ == "__main__":
     # )
 
     test_wr.plot_contour('pressure')
+    test_wr.plotAll()
 
     plt.show()
     

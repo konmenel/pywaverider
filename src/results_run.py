@@ -26,10 +26,9 @@ def main() -> None:
     """The main function of the file."""
     # User Input
     results = results_load_json()
-    system("title "+ cfg.CONFIG['Viscous Method'])
 
     # Printing and Plotting results
-    ans = input("Plot 3D? (type y/n)\n")
+    ans = input("Plot 3D? (type y/n):")
     while not (ans == "y" or ans == "n"):
         ans = input("Type y or n\n")
 
@@ -37,7 +36,7 @@ def main() -> None:
         results_to_screen(results, plot_3D=False)
 
     elif ans == "y":
-        ans = input("Online plot? (y/n)\n")
+        ans = input("Online plot? (y/n): ")
         while not (ans == "y" or ans == "n"):
             ans = input("Type y or n\n")
         
