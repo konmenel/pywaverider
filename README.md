@@ -1,5 +1,5 @@
 # PyWaverider
-***PyWaverider*** is a waverider design tool based on the osculating cones method using Bezier curves as the input. This is the tool used in the paper ***TBD***. 
+***PyWaverider*** is a waverider design tool based on the osculating cones method using Bezier curves as the input. This is the tool used in the paper ["Implementation of various-fidelity methods for viscous effects modeling on the design of a waverider"](http://dx.doi.org/10.1016/j.ast.2023.108141). 
 
 The tool computes the optimal waverider shape for a given mission. This is done using the *Nealder-Mead Simplex* optimization algorithm in order to find the geometry with the best *L/D* ratio for the specific mission. The geometry of the waverider is computed using a method called *osculating cones*, which an extension of the *cone-derived waveriders*.
 
